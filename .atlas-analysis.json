@@ -1,0 +1,147 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Spotify SDK",
+  "projectDescription": "A type-safe Python SDK for the Spotify Web API with sync and async support",
+  "theme": "palm",
+  "primaryColor": "#1DB954",
+  "lightColor": "#1ed760",
+  "darkColor": "#1aa34a",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/authentication",
+              "concepts/clients",
+              "concepts/error-handling",
+              "concepts/pagination"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/async-usage",
+              "guides/retries-and-timeouts",
+              "guides/context-managers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Clients",
+            "pages": [
+              "api/spotify-client",
+              "api/async-spotify-client"
+            ]
+          },
+          {
+            "group": "Services",
+            "pages": [
+              "api/services/albums",
+              "api/services/artists",
+              "api/services/audiobooks",
+              "api/services/chapters",
+              "api/services/episodes",
+              "api/services/library",
+              "api/services/playlists",
+              "api/services/search",
+              "api/services/shows",
+              "api/services/tracks",
+              "api/services/users"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/auth/access-token",
+              "api/auth/client-credentials",
+              "api/auth/authorization-code"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/album",
+              "api/models/artist",
+              "api/models/audiobook",
+              "api/models/track",
+              "api/models/playlist",
+              "api/models/show",
+              "api/models/user",
+              "api/models/common"
+            ]
+          },
+          {
+            "group": "Exceptions",
+            "pages": [
+              "api/exceptions"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Type-safe with full Pydantic models",
+    "Sync and async support",
+    "Automatic retry with exponential backoff",
+    "Context manager support",
+    "Multiple authentication flows",
+    "Comprehensive error handling"
+  ],
+  "publicApiSurface": [
+    "SpotifyClient",
+    "AsyncSpotifyClient",
+    "albums.get()",
+    "albums.get_several()",
+    "albums.get_tracks()",
+    "artists.get()",
+    "artists.get_several()",
+    "artists.get_albums()",
+    "artists.get_top_tracks()",
+    "audiobooks.get()",
+    "audiobooks.get_several()",
+    "audiobooks.get_chapters()",
+    "chapters.get()",
+    "episodes.get()",
+    "episodes.get_saved()",
+    "library.get_saved_albums()",
+    "library.get_saved_tracks()",
+    "playlists.get()",
+    "playlists.get_items()",
+    "playlists.create()",
+    "playlists.add_items()",
+    "search.search()",
+    "shows.get()",
+    "shows.get_episodes()",
+    "shows.get_saved()",
+    "tracks.get()",
+    "tracks.get_several()",
+    "users.get_current_profile()",
+    "users.get_top_items()",
+    "AccessToken",
+    "ClientCredentials",
+    "AuthorizationCode",
+    "SpotifyError",
+    "AuthenticationError",
+    "BadRequestError",
+    "ForbiddenError",
+    "NotFoundError",
+    "RateLimitError",
+    "ServerError"
+  ]
+}
