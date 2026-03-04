@@ -1,0 +1,554 @@
+---
+title: Common Models
+description: Shared Pydantic models used across multiple Spotify API responses
+---
+
+# Common Models
+
+These models are shared across multiple resource types in the Spotify API. They represent common data structures like URLs, images, pagination, and identifiers.
+
+## ExternalUrls
+
+External URLs for opening a resource in the Spotify web player or other platforms.
+
+### Fields
+
+<ResponseField name="spotify" type="str" required>
+  The Spotify URL for the resource (opens in the Spotify web player)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "spotify": "https://open.spotify.com/track/abc123"
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import ExternalUrls
+
+external_urls = ExternalUrls(spotify="https://open.spotify.com/track/abc123")
+print(f"Open in browser: {external_urls.spotify}")
+```
+
+## Followers
+
+Follower information for artists or playlists.
+
+### Fields
+
+<ResponseField name="href" type="str | None" required>
+  A link to the Web API endpoint providing full details of followers. Currently always `None`.
+</ResponseField>
+
+<ResponseField name="total" type="int" required>
+  The total number of followers
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "href": null,
+  "total": 1250000
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import Followers
+
+followers = Followers(href=None, total=1250000)
+print(f"Followers: {followers.total:,}")
+```
+
+## Image
+
+Cover art or profile image. Used for albums, artists, playlists, shows, audiobooks, and user profiles.
+
+### Fields
+
+<ResponseField name="url" type="str" required>
+  The source URL of the image
+</ResponseField>
+
+<ResponseField name="height" type="int | None" required>
+  The image height in pixels, or `None` if unknown (common for user-uploaded images)
+</ResponseField>
+
+<ResponseField name="width" type="int | None" required>
+  The image width in pixels, or `None` if unknown (common for user-uploaded images)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "url": "https://i.scdn.co/image/abc123",
+  "height": 640,
+  "width": 640
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import Image
+
+# Images are typically provided in descending size order
+images = [
+    Image(url="https://i.scdn.co/image/large.jpg", height=640, width=640),
+    Image(url="https://i.scdn.co/image/medium.jpg", height=300, width=300),
+    Image(url="https://i.scdn.co/image/small.jpg", height=64, width=64),
+]
+
+# Get the largest image
+largest = images[0]
+print(f"Large image: {largest.url} ({largest.width}x{largest.height})")
+
+# Get the smallest image for thumbnails
+thumbnail = images[-1]
+print(f"Thumbnail: {thumbnail.url}")
+```
+
+## Restriction
+
+Content restriction information explaining why content may not be available.
+
+### Fields
+
+<ResponseField name="reason" type="str" required>
+  The reason for the restriction. Possible values:
+  - `"market"`: Content not available in the given market
+  - `"product"`: Content not available for the user's subscription level
+  - `"explicit"`: Content restricted due to explicit content settings
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "reason": "market"
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import Restriction
+
+if track.restrictions:
+    reason = track.restrictions.reason
+    if reason == "market":
+        print("This track is not available in your country")
+    elif reason == "product":
+        print("This track requires Spotify Premium")
+    elif reason == "explicit":
+        print("This track is restricted by explicit content settings")
+```
+
+## Copyright
+
+Copyright statement for albums, audiobooks, and shows.
+
+### Fields
+
+<ResponseField name="text" type="str" required>
+  The copyright text
+</ResponseField>
+
+<ResponseField name="type" type="str" required>
+  The type of copyright:
+  - `"C"`: Copyright (℗)
+  - `"P"`: Performance rights (©)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "text": "2023 Example Records",
+  "type": "C"
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import Copyright
+
+for copyright in album.copyrights:
+    symbol = "©" if copyright.type_ == "C" else "℗"
+    print(f"{symbol} {copyright.text}")
+```
+
+## ExternalIds
+
+External identifiers for tracks and albums (ISRC, EAN, UPC).
+
+### Fields
+
+<ResponseField name="isrc" type="str | None">
+  International Standard Recording Code for tracks
+</ResponseField>
+
+<ResponseField name="ean" type="str | None">
+  International Article Number for albums
+</ResponseField>
+
+<ResponseField name="upc" type="str | None">
+  Universal Product Code for albums
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "isrc": "USABC1234567"
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import ExternalIds
+
+# Track with ISRC
+if track.external_ids.isrc:
+    print(f"ISRC: {track.external_ids.isrc}")
+
+# Album with UPC or EAN
+if album.external_ids.upc:
+    print(f"UPC: {album.external_ids.upc}")
+elif album.external_ids.ean:
+    print(f"EAN: {album.external_ids.ean}")
+```
+
+## LinkedFrom
+
+Original track information when track relinking has replaced the requested track.
+
+### Fields
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for the originally requested track
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint for the originally requested track
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the originally requested track
+</ResponseField>
+
+<ResponseField name="type" type="Literal['track']" required>
+  The object type, always "track"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the originally requested track
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/track/original123"
+  },
+  "href": "https://api.spotify.com/v1/tracks/original123",
+  "id": "original123",
+  "type": "track",
+  "uri": "spotify:track:original123"
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import LinkedFrom
+
+if track.linked_from:
+    print(f"Playing alternative version")
+    print(f"Original track ID: {track.linked_from.id}")
+    print(f"Current track ID: {track.id}")
+```
+
+## Page
+
+Generic paginated response containing a list of items and navigation links. This is used for offset-based pagination.
+
+### Type Parameters
+
+- `T`: The type of items in the page (e.g., `Track`, `Album`, `SimplifiedTrack`)
+
+### Fields
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint returning the full result of the request
+</ResponseField>
+
+<ResponseField name="limit" type="int" required>
+  The maximum number of items in the response (as set in the query or default)
+</ResponseField>
+
+<ResponseField name="next" type="str | None" required>
+  URL to the next page of items, or `None` if this is the last page
+</ResponseField>
+
+<ResponseField name="offset" type="int" required>
+  The offset of the items returned (as set in the query or default)
+</ResponseField>
+
+<ResponseField name="previous" type="str | None" required>
+  URL to the previous page of items, or `None` if this is the first page
+</ResponseField>
+
+<ResponseField name="total" type="int" required>
+  The total number of items available to return
+</ResponseField>
+
+<ResponseField name="items" type="list[T]" required>
+  The requested data (array of objects)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "href": "https://api.spotify.com/v1/me/tracks?offset=0&limit=20",
+  "limit": 20,
+  "next": "https://api.spotify.com/v1/me/tracks?offset=20&limit=20",
+  "offset": 0,
+  "previous": null,
+  "total": 157,
+  "items": [
+    {
+      "id": "track123",
+      "name": "Example Track"
+    }
+  ]
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import Page
+from spotify_sdk.models.track import Track
+
+# Type-safe page of tracks
+page: Page[Track] = Page[Track](**api_response)
+
+print(f"Showing {len(page.items)} of {page.total} tracks")
+print(f"Offset: {page.offset}, Limit: {page.limit}")
+
+for track in page.items:
+    print(f"  {track.name}")
+
+if page.next:
+    print(f"Next page available: {page.next}")
+
+if page.previous:
+    print(f"Previous page available: {page.previous}")
+```
+
+## Cursor
+
+Cursor keys for cursor-based pagination.
+
+### Fields
+
+<ResponseField name="after" type="str | None">
+  The cursor to use as a key to find the next page of items
+</ResponseField>
+
+<ResponseField name="before" type="str | None">
+  The cursor to use as a key to find the previous page of items
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "after": "abc123xyz",
+  "before": null
+}
+```
+
+## CursorPage
+
+Cursor-based paginated response. Similar to `Page` but uses cursors instead of offsets.
+
+### Type Parameters
+
+- `T`: The type of items in the page
+
+### Fields
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint returning the full result of the request
+</ResponseField>
+
+<ResponseField name="limit" type="int" required>
+  The maximum number of items in the response
+</ResponseField>
+
+<ResponseField name="next" type="str | None" required>
+  URL to the next page of items, or `None` if this is the last page
+</ResponseField>
+
+<ResponseField name="cursors" type="Cursor" required>
+  Cursor information for navigating pages
+</ResponseField>
+
+<ResponseField name="total" type="int" required>
+  The total number of items available
+</ResponseField>
+
+<ResponseField name="items" type="list[T]" required>
+  The requested data (array of objects)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "href": "https://api.spotify.com/v1/me/following?type=artist&limit=20",
+  "limit": 20,
+  "next": "https://api.spotify.com/v1/me/following?type=artist&after=abc123&limit=20",
+  "cursors": {
+    "after": "abc123xyz",
+    "before": null
+  },
+  "total": 42,
+  "items": [
+    {
+      "id": "artist123",
+      "name": "Example Artist"
+    }
+  ]
+}
+```
+
+### Usage
+
+```python
+from spotify_sdk.models.common import CursorPage
+from spotify_sdk.models.artist import Artist
+
+# Cursor-based page of artists
+page: CursorPage[Artist] = CursorPage[Artist](**api_response)
+
+print(f"Showing {len(page.items)} of {page.total} artists")
+
+for artist in page.items:
+    print(f"  {artist.name}")
+
+if page.next:
+    print(f"Next page cursor: {page.cursors.after}")
+```
+
+## Pagination Overview
+
+<Note>
+  **Offset vs Cursor Pagination**
+  
+  Spotify uses two pagination strategies:
+  
+  **Offset-based (`Page`):**
+  - Used for most endpoints
+  - Allows jumping to any page
+  - Parameters: `offset` and `limit`
+  - Example: `/v1/me/tracks?offset=20&limit=20`
+  
+  **Cursor-based (`CursorPage`):**
+  - Used for endpoints that change frequently (e.g., following)
+  - More efficient for real-time data
+  - Parameters: `after` cursor and `limit`
+  - Example: `/v1/me/following?after=abc123&limit=20`
+</Note>
+
+## Usage Examples
+
+<Expandable title="Iterating Through Paginated Results">
+  ```python
+  from spotify_sdk.models.common import Page
+  from spotify_sdk.models.track import Track
+  
+  # Collect all items from multiple pages
+  all_tracks = []
+  page: Page[Track] = Page[Track](**first_page_response)
+  
+  while True:
+      all_tracks.extend(page.items)
+      
+      if not page.next:
+          break
+      
+      # Fetch next page using page.next URL
+      next_response = api_client.get(page.next)
+      page = Page[Track](**next_response)
+  
+  print(f"Collected {len(all_tracks)} tracks total")
+  ```
+</Expandable>
+
+<Expandable title="Working with Image Sizes">
+  ```python
+  from spotify_sdk.models.common import Image
+  
+  def get_image_by_size(images: list[Image], target_size: int = 300) -> Image | None:
+      """Get the image closest to the target size."""
+      if not images:
+          return None
+      
+      # Filter images with known dimensions
+      sized_images = [img for img in images if img.width and img.height]
+      
+      if not sized_images:
+          return images[0]  # Return first image if no dimensions
+      
+      # Find closest to target size
+      return min(
+          sized_images,
+          key=lambda img: abs(img.width - target_size)
+      )
+  
+  # Usage
+  album_image = get_image_by_size(album.images, 300)
+  if album_image:
+      print(f"Album art: {album_image.url}")
+  ```
+</Expandable>
+
+<Expandable title="Handling Content Restrictions">
+  ```python
+  from spotify_sdk.models.track import Track
+  
+  def can_play_track(track: Track) -> tuple[bool, str]:
+      """Check if a track can be played and why not if it can't."""
+      if not track.is_playable:
+          if track.restrictions:
+              reason = track.restrictions.reason
+              messages = {
+                  "market": "Not available in your country",
+                  "product": "Requires Spotify Premium",
+                  "explicit": "Blocked by explicit content filter"
+              }
+              return False, messages.get(reason, "Not playable")
+          return False, "Not playable"
+      
+      return True, "Can play"
+  
+  # Usage
+  can_play, message = can_play_track(track)
+  if not can_play:
+      print(f"⚠ {message}")
+  ```
+</Expandable>

@@ -1,0 +1,178 @@
+---
+title: Artist Models
+description: Pydantic models for Spotify artist objects
+---
+
+# Artist Models
+
+The artist models represent artist data from the Spotify API. Artists can be embedded in other objects or returned with full profile details.
+
+## SimplifiedArtist
+
+Basic artist information embedded in other objects like albums and tracks.
+
+### Fields
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this artist. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details of the artist
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the artist
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the artist
+</ResponseField>
+
+<ResponseField name="type" type="Literal['artist']" required>
+  The object type, always "artist"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the artist
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/artist/xyz789"
+  },
+  "href": "https://api.spotify.com/v1/artists/xyz789",
+  "id": "xyz789",
+  "name": "Example Artist",
+  "type": "artist",
+  "uri": "spotify:artist:xyz789"
+}
+```
+
+## Artist
+
+Complete artist profile with followers, genres, images, and popularity. Extends `SimplifiedArtist`.
+
+### Additional Fields
+
+<ResponseField name="followers" type="Followers" required>
+  Follower count and information. See [Common Models](/api/models/common#followers).
+</ResponseField>
+
+<ResponseField name="genres" type="list[str]" required>
+  A list of genres the artist is associated with (e.g., "rock", "pop", "indie")
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Profile images for the artist in various sizes. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="popularity" type="int" required>
+  The popularity of the artist, between 0 and 100, with 100 being the most popular. Calculated based on the popularity of the artist's tracks.
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/artist/xyz789"
+  },
+  "href": "https://api.spotify.com/v1/artists/xyz789",
+  "id": "xyz789",
+  "name": "Example Artist",
+  "type": "artist",
+  "uri": "spotify:artist:xyz789",
+  "followers": {
+    "href": null,
+    "total": 1250000
+  },
+  "genres": [
+    "indie rock",
+    "alternative",
+    "indie pop"
+  ],
+  "images": [
+    {
+      "url": "https://i.scdn.co/image/xyz789",
+      "height": 640,
+      "width": 640
+    },
+    {
+      "url": "https://i.scdn.co/image/xyz456",
+      "height": 320,
+      "width": 320
+    },
+    {
+      "url": "https://i.scdn.co/image/xyz123",
+      "height": 160,
+      "width": 160
+    }
+  ],
+  "popularity": 78
+}
+```
+
+## Model Relationships
+
+<Note>
+  **Artist Model Hierarchy**
+  
+  - `SimplifiedArtist` provides just the core identification fields (id, name, URI, etc.)
+  - `Artist` extends `SimplifiedArtist` and adds profile information like followers, genres, images, and popularity
+  
+  The simplified version is used when artists are embedded in other responses (like in `Album` or `Track` objects), while the full `Artist` model is returned from artist-specific endpoints.
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.artist import Artist, SimplifiedArtist
+
+# Parse an artist from the API response
+artist = Artist(**api_response)
+
+# Access artist properties
+print(f"Artist: {artist.name}")
+print(f"Followers: {artist.followers.total:,}")
+print(f"Popularity: {artist.popularity}")
+print(f"Genres: {', '.join(artist.genres)}")
+
+# Get the largest image
+if artist.images:
+    largest_image = artist.images[0]
+    print(f"Image URL: {largest_image.url}")
+    print(f"Dimensions: {largest_image.width}x{largest_image.height}")
+
+# Simplified artist from an album
+album_artist = SimplifiedArtist(**simplified_data)
+print(f"Album by: {album_artist.name}")
+```
+
+## Common Use Cases
+
+<Expandable title="When to use SimplifiedArtist vs Artist">
+  **SimplifiedArtist** is used when:
+  - Artists are listed on albums (album.artists)
+  - Artists are listed on tracks (track.artists)
+  - You only need basic identification without fetching full artist details
+  
+  **Artist** is used when:
+  - Fetching artist details from `/v1/artists/{id}`
+  - Getting multiple artists from `/v1/artists`
+  - You need follower counts, genres, or popularity data
+</Expandable>
+
+<Expandable title="Understanding Artist Popularity">
+  Artist popularity is calculated from the popularity of all the artist's tracks. It's a value between 0 and 100:
+  - 90-100: Global superstars
+  - 70-89: Very popular artists
+  - 50-69: Moderately popular
+  - 30-49: Niche or emerging artists
+  - 0-29: Lesser-known artists
+  
+  Note that popularity is updated regularly and can change over time.
+</Expandable>

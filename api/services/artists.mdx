@@ -1,0 +1,260 @@
+---
+title: "Artists Service"
+description: "API reference for Spotify SDK artist operations including retrieving artist info, albums, and top tracks"
+---
+
+## Overview
+
+The `ArtistService` (sync) and `AsyncArtistService` (async) provide methods for retrieving Spotify artist information, discography, and top tracks.
+
+<Note>
+Both sync and async versions are available. Import `ArtistService` for sync operations or `AsyncArtistService` for async operations.
+</Note>
+
+## Methods
+
+### get
+
+Retrieve detailed information about a single artist by their Spotify ID.
+
+```python
+async def get(id: str) -> Artist
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the artist.
+</ParamField>
+
+**Returns:** `Artist` - The complete artist object with metadata including genres, popularity, and images.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    artist = await client.artists.get("0TnOYISbd1XYRBk9myaseg")
+    
+    print(f"Artist: {artist.name}")
+    print(f"Popularity: {artist.popularity}/100")
+    print(f"Followers: {artist.followers.total:,}")
+    print(f"Genres: {', '.join(artist.genres)}")
+    
+    if artist.images:
+        print(f"Image URL: {artist.images[0].url}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    artist = client.artists.get("0TnOYISbd1XYRBk9myaseg")
+    print(f"Artist: {artist.name}")
+    print(f"Genres: {', '.join(artist.genres)}")
+```
+</CodeGroup>
+
+---
+
+### get_several
+
+Retrieve multiple artists in a single request.
+
+```python
+async def get_several(ids: list[str]) -> list[Artist]
+```
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify artist IDs. Maximum of 50 IDs per request enforced by Spotify API.
+</ParamField>
+
+**Returns:** `list[Artist]` - List of artist objects.
+
+**Raises:** `ValueError` if `ids` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    artist_ids = [
+        "0TnOYISbd1XYRBk9myaseg",
+        "3TVXtAsR1Inumwj472S9r4",
+        "1Xyo4u8uXC1ZmMpatF05PJ"
+    ]
+    
+    artists = await client.artists.get_several(artist_ids)
+    
+    for artist in artists:
+        print(f"{artist.name} - Popularity: {artist.popularity}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    artists = client.artists.get_several(["0TnOYISbd1XYRBk9myaseg", "3TVXtAsR1Inumwj472S9r4"])
+    for artist in artists:
+        print(artist.name)
+```
+</CodeGroup>
+
+<Tip>
+Batch requests are more efficient than multiple individual requests. The Spotify API allows up to 50 artists per call.
+</Tip>
+
+---
+
+### get_albums
+
+Retrieve an artist's albums with filtering and pagination options.
+
+```python
+async def get_albums(
+    id: str,
+    include_groups: list[IncludeGroup] | None = None,
+    market: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None
+) -> Page[SimplifiedAlbum]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the artist.
+</ParamField>
+
+<ParamField path="include_groups" type="list[IncludeGroup] | None" default="None">
+  Filter album types to include. Valid values: `"album"`, `"single"`, `"appears_on"`, `"compilation"`. If omitted, all types are returned.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for content availability.
+</ParamField>
+
+<ParamField path="limit" type="int | None" default="None">
+  Maximum number of albums to return. Valid range: 1-50. Server-side default is 20.
+</ParamField>
+
+<ParamField path="offset" type="int | None" default="None">
+  Index of the first album to return (for pagination). Server-side default is 0.
+</ParamField>
+
+**Returns:** `Page[SimplifiedAlbum]` - Paginated response containing simplified album objects.
+
+**Raises:** 
+- `ValueError` if `id` is empty or `include_groups` contains invalid values.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    # Get only studio albums and singles
+    albums = await client.artists.get_albums(
+        "0TnOYISbd1XYRBk9myaseg",
+        include_groups=["album", "single"],
+        market="US",
+        limit=20
+    )
+    
+    print(f"Total albums: {albums.total}")
+    for album in albums.items:
+        print(f"{album.name} ({album.release_date}) - {album.album_type}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    # Get all album types
+    albums = client.artists.get_albums("0TnOYISbd1XYRBk9myaseg", limit=10)
+    for album in albums.items:
+        print(f"{album.name} - {album.album_type}")
+```
+</CodeGroup>
+
+<Note>
+The `include_groups` parameter accepts these values:
+- `"album"` - Studio albums
+- `"single"` - Singles and EPs
+- `"appears_on"` - Albums the artist appears on
+- `"compilation"` - Compilation albums
+</Note>
+
+---
+
+### get_top_tracks
+
+Retrieve an artist's top tracks for a given market.
+
+```python
+async def get_top_tracks(id: str, market: str | None = None) -> list[Track]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the artist.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for the requested content.
+</ParamField>
+
+**Returns:** `list[Track]` - List of the artist's top tracks (typically up to 10 tracks).
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    top_tracks = await client.artists.get_top_tracks(
+        "0TnOYISbd1XYRBk9myaseg",
+        market="US"
+    )
+    
+    print("Top Tracks:")
+    for i, track in enumerate(top_tracks, 1):
+        duration_min = track.duration_ms // 60000
+        duration_sec = (track.duration_ms % 60000) // 1000
+        print(f"{i}. {track.name} ({duration_min}:{duration_sec:02d})")
+        print(f"   Album: {track.album.name}")
+        print(f"   Popularity: {track.popularity}/100")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    top_tracks = client.artists.get_top_tracks("0TnOYISbd1XYRBk9myaseg", market="US")
+    for track in top_tracks[:5]:  # Show top 5
+        print(f"{track.name} - Popularity: {track.popularity}")
+```
+</CodeGroup>
+
+<Tip>
+Specifying a market code helps ensure you get region-appropriate top tracks and availability information.
+</Tip>
+
+## Type Definitions
+
+### IncludeGroup
+
+```python
+IncludeGroup = Literal["album", "single", "appears_on", "compilation"]
+```
+
+Used to filter album types when retrieving an artist's discography.
+
+## Related Models
+
+- `Artist` - Full artist object with complete metadata
+- `SimplifiedAlbum` - Album object with essential information
+- `Track` - Full track object with album and artist details
+- `Page[T]` - Paginated response wrapper
+
+## See Also
+
+- [Albums Service](/api/services/albums) - Work with album data
+- [Authentication](/concepts/authentication) - Required scopes and auth flows

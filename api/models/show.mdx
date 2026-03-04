@@ -1,0 +1,405 @@
+---
+title: Show and Episode Models
+description: Pydantic models for Spotify show (podcast) and episode objects
+---
+
+# Show and Episode Models
+
+The show and episode models represent podcast data from the Spotify API.
+
+## SimplifiedShow
+
+Basic show (podcast) information embedded in other objects.
+
+### Fields
+
+<ResponseField name="available_markets" type="list[str] | None">
+  A list of ISO 3166-1 alpha-2 country codes where the show is available
+</ResponseField>
+
+<ResponseField name="copyrights" type="list[Copyright]" required>
+  Copyright statements for the show. See [Common Models](/api/models/common#copyright).
+</ResponseField>
+
+<ResponseField name="description" type="str" required>
+  Plain text description of the show
+</ResponseField>
+
+<ResponseField name="html_description" type="str" required>
+  HTML description of the show
+</ResponseField>
+
+<ResponseField name="explicit" type="bool" required>
+  Whether the show contains explicit content
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this show. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the show
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Cover art for the show. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="is_externally_hosted" type="bool | None">
+  Whether the show is hosted outside of Spotify's CDN
+</ResponseField>
+
+<ResponseField name="languages" type="list[str]" required>
+  A list of languages the show is available in
+</ResponseField>
+
+<ResponseField name="media_type" type="str" required>
+  The media type of the show (typically "audio")
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the show
+</ResponseField>
+
+<ResponseField name="publisher" type="str" required>
+  The publisher of the show
+</ResponseField>
+
+<ResponseField name="type" type="Literal['show']" required>
+  The object type, always "show"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the show
+</ResponseField>
+
+<ResponseField name="total_episodes" type="int" required>
+  The total number of episodes in the show
+</ResponseField>
+
+## SimplifiedEpisode
+
+Basic episode information embedded in other objects.
+
+### Fields
+
+<ResponseField name="audio_preview_url" type="str | None">
+  A URL to a 30-second preview (MP3) of the episode
+</ResponseField>
+
+<ResponseField name="description" type="str" required>
+  Plain text description of the episode
+</ResponseField>
+
+<ResponseField name="html_description" type="str" required>
+  HTML description of the episode
+</ResponseField>
+
+<ResponseField name="duration_ms" type="int" required>
+  The duration of the episode in milliseconds
+</ResponseField>
+
+<ResponseField name="explicit" type="bool" required>
+  Whether the episode contains explicit content
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this episode. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the episode
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Cover art for the episode. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="is_externally_hosted" type="bool | None">
+  Whether the episode is hosted outside of Spotify's CDN
+</ResponseField>
+
+<ResponseField name="is_playable" type="bool | None">
+  Whether the episode is playable in the current market
+</ResponseField>
+
+<ResponseField name="language" type="str | None">
+  The language of the episode (deprecated, use `languages` instead)
+</ResponseField>
+
+<ResponseField name="languages" type="list[str]" required>
+  A list of languages available for the episode
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the episode
+</ResponseField>
+
+<ResponseField name="release_date" type="str" required>
+  The release date of the episode
+</ResponseField>
+
+<ResponseField name="release_date_precision" type="str" required>
+  The precision of the release date: "year", "month", or "day"
+</ResponseField>
+
+<ResponseField name="restrictions" type="Restriction | None">
+  Content restrictions applied to this episode. See [Common Models](/api/models/common#restriction).
+</ResponseField>
+
+<ResponseField name="resume_point" type="ResumePoint | None">
+  The user's resume point for the episode (only when authenticated). See [Audiobook Models](/api/models/audiobook#resumepoint).
+</ResponseField>
+
+<ResponseField name="type" type="Literal['episode']" required>
+  The object type, always "episode"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the episode
+</ResponseField>
+
+## Show
+
+Complete show object with episode list. Extends `SimplifiedShow`.
+
+### Additional Fields
+
+<ResponseField name="episodes" type="Page[SimplifiedEpisode]" required>
+  Paginated list of episodes in the show. See [Common Models](/api/models/common#page).
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "id": "show123",
+  "name": "Example Podcast",
+  "publisher": "Example Media",
+  "description": "An example podcast about technology",
+  "html_description": "<p>An example podcast about technology</p>",
+  "explicit": false,
+  "languages": ["en"],
+  "media_type": "audio",
+  "total_episodes": 150,
+  "episodes": {
+    "href": "https://api.spotify.com/v1/shows/show123/episodes",
+    "items": [
+      {
+        "id": "episode123",
+        "name": "Episode 1: Introduction",
+        "duration_ms": 3600000,
+        "release_date": "2023-01-15"
+      }
+    ],
+    "limit": 50,
+    "next": "https://api.spotify.com/v1/shows/show123/episodes?offset=50",
+    "offset": 0,
+    "previous": null,
+    "total": 150
+  }
+}
+```
+
+## Episode
+
+Complete episode object with show information. Extends `SimplifiedEpisode`.
+
+### Additional Fields
+
+<ResponseField name="show" type="SimplifiedShow" required>
+  The show this episode belongs to
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "id": "episode123",
+  "name": "Episode 1: Introduction",
+  "description": "Welcome to the first episode",
+  "html_description": "<p>Welcome to the first episode</p>",
+  "duration_ms": 3600000,
+  "explicit": false,
+  "release_date": "2023-01-15",
+  "release_date_precision": "day",
+  "languages": ["en"],
+  "show": {
+    "id": "show123",
+    "name": "Example Podcast",
+    "publisher": "Example Media",
+    "type": "show",
+    "uri": "spotify:show:show123"
+  },
+  "type": "episode",
+  "uri": "spotify:episode:episode123"
+}
+```
+
+## SavedShow
+
+Represents a show saved in a user's library with metadata about when it was saved.
+
+### Fields
+
+<ResponseField name="added_at" type="datetime" required>
+  The timestamp when the show was saved to the user's library
+</ResponseField>
+
+<ResponseField name="show" type="SimplifiedShow" required>
+  The simplified show object
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "added_at": "2023-12-01T10:30:00Z",
+  "show": {
+    "id": "show123",
+    "name": "Example Podcast",
+    "publisher": "Example Media",
+    "type": "show"
+  }
+}
+```
+
+## SavedEpisode
+
+Represents an episode saved in a user's library with metadata about when it was saved.
+
+### Fields
+
+<ResponseField name="added_at" type="datetime" required>
+  The timestamp when the episode was saved to the user's library
+</ResponseField>
+
+<ResponseField name="episode" type="Episode" required>
+  The complete episode object with show information
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "added_at": "2023-12-01T10:30:00Z",
+  "episode": {
+    "id": "episode123",
+    "name": "Episode 1: Introduction",
+    "duration_ms": 3600000,
+    "show": {
+      "id": "show123",
+      "name": "Example Podcast"
+    }
+  }
+}
+```
+
+## Model Relationships
+
+<Note>
+  **Show/Episode Model Hierarchy**
+  
+  - `SimplifiedShow` contains basic podcast metadata
+  - `Show` extends `SimplifiedShow` and includes a `Page` of `SimplifiedEpisode` objects
+  - `SimplifiedEpisode` contains basic episode information
+  - `Episode` extends `SimplifiedEpisode` and includes the parent `SimplifiedShow`
+  - `SavedShow` wraps a `SimplifiedShow` with a timestamp
+  - `SavedEpisode` wraps a complete `Episode` with a timestamp
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.show import Show, Episode, SavedShow
+
+# Parse a show from the API response
+show = Show(**api_response)
+
+print(f"Podcast: {show.name}")
+print(f"Publisher: {show.publisher}")
+print(f"Total episodes: {show.total_episodes}")
+print(f"Explicit: {'Yes' if show.explicit else 'No'}")
+
+# Iterate through episodes
+for episode in show.episodes.items:
+    duration_min = episode.duration_ms // 60000
+    print(f"\n{episode.name}")
+    print(f"  Duration: {duration_min} minutes")
+    print(f"  Released: {episode.release_date}")
+    
+    # Check resume point if available
+    if episode.resume_point:
+        if episode.resume_point.fully_played:
+            print("  ✓ Completed")
+        else:
+            resume_min = episode.resume_point.resume_position_ms // 60000
+            print(f"  Resume at {resume_min} minutes")
+
+# Working with saved shows
+saved_show = SavedShow(**saved_response)
+print(f"\nSaved on: {saved_show.added_at.strftime('%Y-%m-%d')}")
+```
+
+## Common Use Cases
+
+<Expandable title="Understanding External Hosting">
+  Some podcasts are hosted outside of Spotify's CDN:
+  
+  - `is_externally_hosted = True`: Content is hosted by the publisher
+  - `is_externally_hosted = False`: Content is hosted on Spotify's servers
+  - `is_externally_hosted = None`: Hosting information not available
+  
+  This affects content delivery but doesn't change the API interface:
+  
+  ```python
+  if show.is_externally_hosted:
+      print("This podcast is hosted by the publisher")
+  ```
+</Expandable>
+
+<Expandable title="Tracking Episode Progress">
+  Episodes include a `resume_point` when accessed with user authentication:
+  
+  ```python
+  for episode in show.episodes.items:
+      if episode.resume_point:
+          progress = (
+              episode.resume_point.resume_position_ms / 
+              episode.duration_ms * 100
+          )
+          
+          if episode.resume_point.fully_played:
+              print(f"✓ {episode.name} - Completed")
+          else:
+              print(f"▶ {episode.name} - {progress:.0f}% complete")
+  ```
+</Expandable>
+
+<Expandable title="Working with Episode Release Dates">
+  Episode release dates have varying precision:
+  
+  ```python
+  from datetime import datetime
+  
+  for episode in show.episodes.items:
+      if episode.release_date_precision == "day":
+          # Full date available
+          date = datetime.fromisoformat(episode.release_date)
+          print(f"Released: {date.strftime('%B %d, %Y')}")
+      elif episode.release_date_precision == "month":
+          # Month and year only
+          print(f"Released: {episode.release_date}")
+      else:
+          # Year only
+          print(f"Released: {episode.release_date}")
+  ```
+</Expandable>

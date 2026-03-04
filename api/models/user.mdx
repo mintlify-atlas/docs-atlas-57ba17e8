@@ -1,0 +1,267 @@
+---
+title: User Models
+description: Pydantic models for Spotify user objects
+---
+
+# User Models
+
+The user models represent user profile data from the Spotify API.
+
+## PublicUser
+
+Public user profile information. This is used when user data is embedded in other objects like playlists.
+
+### Fields
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this user. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint for this user
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify user ID
+</ResponseField>
+
+<ResponseField name="type" type="Literal['user']" required>
+  The object type, always "user"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the user
+</ResponseField>
+
+<ResponseField name="display_name" type="str | None">
+  The user's display name, or `None` if not available
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/user/user123"
+  },
+  "href": "https://api.spotify.com/v1/users/user123",
+  "id": "user123",
+  "type": "user",
+  "uri": "spotify:user:user123",
+  "display_name": "Example User"
+}
+```
+
+## ExplicitContent
+
+Explicit content filter settings for a user account.
+
+### Fields
+
+<ResponseField name="filter_enabled" type="bool | None">
+  Whether the explicit content filter is enabled
+</ResponseField>
+
+<ResponseField name="filter_locked" type="bool | None">
+  Whether the explicit content filter is locked (cannot be changed)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "filter_enabled": false,
+  "filter_locked": false
+}
+```
+
+## CurrentUser
+
+The current authenticated user's private profile details. Extends `PublicUser`.
+
+### Additional Fields
+
+<ResponseField name="country" type="str | None">
+  The country of the user, as an ISO 3166-1 alpha-2 code (requires `user-read-private` scope)
+</ResponseField>
+
+<ResponseField name="email" type="str | None">
+  The user's email address (requires `user-read-email` scope)
+</ResponseField>
+
+<ResponseField name="explicit_content" type="ExplicitContent | None">
+  The user's explicit content filter settings (requires `user-read-private` scope)
+</ResponseField>
+
+<ResponseField name="followers" type="Followers | None">
+  Follower information for the user. See [Common Models](/api/models/common#followers).
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  The user's profile images. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="product" type="str | None">
+  The user's Spotify subscription level: "premium", "free", etc. (requires `user-read-private` scope)
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/user/user123"
+  },
+  "href": "https://api.spotify.com/v1/users/user123",
+  "id": "user123",
+  "type": "user",
+  "uri": "spotify:user:user123",
+  "display_name": "Example User",
+  "country": "US",
+  "email": "user@example.com",
+  "explicit_content": {
+    "filter_enabled": false,
+    "filter_locked": false
+  },
+  "followers": {
+    "href": null,
+    "total": 42
+  },
+  "images": [
+    {
+      "url": "https://i.scdn.co/image/user123",
+      "height": 300,
+      "width": 300
+    }
+  ],
+  "product": "premium"
+}
+```
+
+## Model Relationships
+
+<Note>
+  **User Model Hierarchy**
+  
+  - `PublicUser` provides basic public profile information (id, display name, URI)
+  - `CurrentUser` extends `PublicUser` and adds private details like email, country, subscription level, and settings
+  
+  Use `PublicUser` when accessing other users' profiles or when user data is embedded in playlists. Use `CurrentUser` when fetching the authenticated user's profile from `/v1/me`.
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.user import CurrentUser, PublicUser
+
+# Get the current user's profile
+current_user = CurrentUser(**api_response)
+
+print(f"Display Name: {current_user.display_name}")
+print(f"Email: {current_user.email}")
+print(f"Country: {current_user.country}")
+print(f"Subscription: {current_user.product}")
+
+if current_user.followers:
+    print(f"Followers: {current_user.followers.total}")
+
+# Check explicit content settings
+if current_user.explicit_content:
+    if current_user.explicit_content.filter_enabled:
+        print("Explicit content filter: ON")
+    else:
+        print("Explicit content filter: OFF")
+
+# Access profile image
+if current_user.images:
+    print(f"Profile image: {current_user.images[0].url}")
+
+# Public user from a playlist owner
+owner = PublicUser(**playlist_owner_data)
+print(f"Playlist by: {owner.display_name}")
+```
+
+## Common Use Cases
+
+<Expandable title="Understanding Required Scopes">
+  Different user profile fields require different authorization scopes:
+  
+  **No scope required:**
+  - `id`, `display_name`, `uri`, `external_urls`, `href`, `type`
+  
+  **user-read-private scope:**
+  - `country`, `product`, `explicit_content`
+  
+  **user-read-email scope:**
+  - `email`
+  
+  Fields that require scopes you don't have will be `None`:
+  
+  ```python
+  if current_user.email is None:
+      print("Email not available - user-read-email scope not granted")
+  
+  if current_user.country is None:
+      print("Country not available - user-read-private scope not granted")
+  ```
+</Expandable>
+
+<Expandable title="Checking Subscription Level">
+  The `product` field indicates the user's subscription tier:
+  
+  ```python
+  if current_user.product == "premium":
+      print("Premium subscriber - full access to features")
+  elif current_user.product == "free":
+      print("Free tier - limited playback")
+  else:
+      print(f"Subscription: {current_user.product}")
+  ```
+  
+  Common values:
+  - `"premium"`: Spotify Premium subscriber
+  - `"free"`: Free tier user
+  - `"open"`: User with limited access
+</Expandable>
+
+<Expandable title="Working with Profile Images">
+  User profile images work the same as other images in the API:
+  
+  ```python
+  if current_user.images:
+      # Images are typically provided in descending size order
+      largest = current_user.images[0]
+      print(f"Profile picture: {largest.url}")
+      
+      if largest.width and largest.height:
+          print(f"Dimensions: {largest.width}x{largest.height}")
+  else:
+      print("No profile picture set")
+  ```
+  
+  Note that user-uploaded images may not have width/height information.
+</Expandable>
+
+<Expandable title="PublicUser vs CurrentUser">
+  Use the appropriate model based on context:
+  
+  **PublicUser** for:
+  - Playlist owners (`playlist.owner`)
+  - Users who added tracks to playlists (`playlist_track.added_by`)
+  - Fetching other users' public profiles
+  
+  **CurrentUser** for:
+  - The authenticated user's profile from `/v1/me`
+  - Accessing private user data (email, country, subscription)
+  
+  ```python
+  # Current user - private data
+  me = CurrentUser(**me_response)
+  print(f"My email: {me.email}")
+  
+  # Public user - limited data
+  owner = PublicUser(**owner_data)
+  print(f"Playlist by: {owner.display_name}")
+  # owner.email would not exist
+  ```
+</Expandable>

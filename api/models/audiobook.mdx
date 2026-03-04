@@ -1,0 +1,313 @@
+---
+title: Audiobook Models
+description: Pydantic models for Spotify audiobook and chapter objects
+---
+
+# Audiobook Models
+
+The audiobook models represent audiobook and chapter data from the Spotify API.
+
+## AudiobookAuthor
+
+Represents an author of an audiobook.
+
+### Fields
+
+<ResponseField name="name" type="str" required>
+  The name of the author
+</ResponseField>
+
+## AudiobookNarrator
+
+Represents a narrator of an audiobook.
+
+### Fields
+
+<ResponseField name="name" type="str" required>
+  The name of the narrator
+</ResponseField>
+
+## ResumePoint
+
+Represents the user's resume point for a chapter.
+
+### Fields
+
+<ResponseField name="fully_played" type="bool" required>
+  Whether the chapter has been fully played by the user
+</ResponseField>
+
+<ResponseField name="resume_position_ms" type="int" required>
+  The resume position in milliseconds
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "fully_played": false,
+  "resume_position_ms": 125000
+}
+```
+
+## SimplifiedAudiobook
+
+Basic audiobook information embedded in other objects.
+
+### Fields
+
+<ResponseField name="authors" type="list[AudiobookAuthor]" required>
+  List of authors of the audiobook
+</ResponseField>
+
+<ResponseField name="available_markets" type="list[str] | None">
+  A list of ISO 3166-1 alpha-2 country codes where the audiobook is available
+</ResponseField>
+
+<ResponseField name="copyrights" type="list[Copyright]" required>
+  Copyright statements for the audiobook. See [Common Models](/api/models/common#copyright).
+</ResponseField>
+
+<ResponseField name="description" type="str" required>
+  Plain text description of the audiobook
+</ResponseField>
+
+<ResponseField name="html_description" type="str" required>
+  HTML description of the audiobook
+</ResponseField>
+
+<ResponseField name="edition" type="str | None">
+  The edition of the audiobook (e.g., "Unabridged")
+</ResponseField>
+
+<ResponseField name="explicit" type="bool" required>
+  Whether the audiobook contains explicit content
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this audiobook. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the audiobook
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Cover art for the audiobook. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="languages" type="list[str]" required>
+  A list of languages the audiobook is available in
+</ResponseField>
+
+<ResponseField name="media_type" type="str" required>
+  The media type of the audiobook
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the audiobook
+</ResponseField>
+
+<ResponseField name="narrators" type="list[AudiobookNarrator]" required>
+  List of narrators of the audiobook
+</ResponseField>
+
+<ResponseField name="publisher" type="str" required>
+  The publisher of the audiobook
+</ResponseField>
+
+<ResponseField name="type" type="Literal['audiobook']" required>
+  The object type, always "audiobook"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the audiobook
+</ResponseField>
+
+<ResponseField name="total_chapters" type="int" required>
+  The total number of chapters in the audiobook
+</ResponseField>
+
+## SimplifiedChapter
+
+Basic chapter information embedded in other objects.
+
+### Fields
+
+<ResponseField name="audio_preview_url" type="str | None">
+  A URL to a 30-second preview (MP3) of the chapter
+</ResponseField>
+
+<ResponseField name="available_markets" type="list[str] | None">
+  A list of country codes where the chapter is available
+</ResponseField>
+
+<ResponseField name="chapter_number" type="int" required>
+  The number of the chapter
+</ResponseField>
+
+<ResponseField name="description" type="str" required>
+  Plain text description of the chapter
+</ResponseField>
+
+<ResponseField name="html_description" type="str" required>
+  HTML description of the chapter
+</ResponseField>
+
+<ResponseField name="duration_ms" type="int" required>
+  The duration of the chapter in milliseconds
+</ResponseField>
+
+<ResponseField name="explicit" type="bool" required>
+  Whether the chapter contains explicit content
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this chapter. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the chapter
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Cover art for the chapter. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="is_playable" type="bool | None">
+  Whether the chapter is playable in the current market
+</ResponseField>
+
+<ResponseField name="languages" type="list[str]" required>
+  A list of languages available for the chapter
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the chapter
+</ResponseField>
+
+<ResponseField name="release_date" type="str" required>
+  The release date of the chapter
+</ResponseField>
+
+<ResponseField name="release_date_precision" type="str" required>
+  The precision of the release date: "year", "month", or "day"
+</ResponseField>
+
+<ResponseField name="restrictions" type="Restriction | None">
+  Content restrictions applied to this chapter. See [Common Models](/api/models/common#restriction).
+</ResponseField>
+
+<ResponseField name="resume_point" type="ResumePoint | None">
+  The user's resume point for the chapter (only when authenticated)
+</ResponseField>
+
+<ResponseField name="type" type="Literal['chapter']" required>
+  The object type, always "chapter"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the chapter
+</ResponseField>
+
+## Audiobook
+
+Complete audiobook object with chapter list. Extends `SimplifiedAudiobook`.
+
+### Additional Fields
+
+<ResponseField name="chapters" type="Page[SimplifiedChapter]" required>
+  Paginated list of chapters in the audiobook. See [Common Models](/api/models/common#page).
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "id": "audiobook123",
+  "name": "Example Audiobook",
+  "authors": [{"name": "Jane Author"}],
+  "narrators": [{"name": "John Narrator"}],
+  "publisher": "Example Publishing",
+  "description": "An example audiobook",
+  "html_description": "<p>An example audiobook</p>",
+  "edition": "Unabridged",
+  "explicit": false,
+  "languages": ["en"],
+  "media_type": "audio",
+  "total_chapters": 12,
+  "chapters": {
+    "href": "https://api.spotify.com/v1/audiobooks/audiobook123/chapters",
+    "items": [
+      {
+        "id": "chapter1",
+        "name": "Chapter 1",
+        "chapter_number": 1,
+        "duration_ms": 1800000
+      }
+    ],
+    "limit": 50,
+    "next": null,
+    "offset": 0,
+    "previous": null,
+    "total": 12
+  }
+}
+```
+
+## Chapter
+
+Complete chapter object with audiobook information. Extends `SimplifiedChapter`.
+
+### Additional Fields
+
+<ResponseField name="audiobook" type="SimplifiedAudiobook" required>
+  The audiobook this chapter belongs to
+</ResponseField>
+
+## Model Relationships
+
+<Note>
+  **Audiobook Model Hierarchy**
+  
+  - `SimplifiedAudiobook` contains basic audiobook metadata, authors, and narrators
+  - `Audiobook` extends `SimplifiedAudiobook` and includes a `Page` of `SimplifiedChapter` objects
+  - `SimplifiedChapter` contains basic chapter information
+  - `Chapter` extends `SimplifiedChapter` and includes the parent `SimplifiedAudiobook`
+  - `ResumePoint` tracks user playback progress on chapters
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.audiobook import Audiobook, Chapter
+
+# Parse an audiobook from the API response
+audiobook = Audiobook(**api_response)
+
+print(f"Audiobook: {audiobook.name}")
+print(f"Authors: {', '.join(a.name for a in audiobook.authors)}")
+print(f"Narrators: {', '.join(n.name for n in audiobook.narrators)}")
+print(f"Total chapters: {audiobook.total_chapters}")
+
+# Iterate through chapters
+for chapter in audiobook.chapters.items:
+    duration_min = chapter.duration_ms // 60000
+    print(f"  Ch {chapter.chapter_number}: {chapter.name} ({duration_min} min)")
+    
+    # Check resume point if available
+    if chapter.resume_point:
+        if chapter.resume_point.fully_played:
+            print("    ✓ Completed")
+        else:
+            resume_min = chapter.resume_point.resume_position_ms // 60000
+            print(f"    Resume at {resume_min} minutes")
+```

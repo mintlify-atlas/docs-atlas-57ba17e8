@@ -1,0 +1,571 @@
+---
+title: Error Handling
+description: Learn about exception types, error hierarchy, and how to handle errors when using the Spotify SDK
+---
+
+The Spotify SDK raises specific exceptions for different error conditions, making it easy to handle errors appropriately in your application.
+
+## Exception Hierarchy
+
+All SDK exceptions inherit from `SpotifyError`, allowing you to catch all SDK errors with a single exception handler:
+
+```python
+from spotify_sdk.exceptions import SpotifyError
+
+try:
+    album = client.albums.get("invalid-id")
+except SpotifyError as e:
+    print(f"Spotify error: {e.message}")
+    print(f"Status code: {e.status_code}")
+    print(f"Response: {e.response_body}")
+```
+
+<Steps>
+  <Step title="SpotifyError">
+    Base exception for all SDK errors
+  </Step>
+  <Step title="AuthenticationError">
+    Invalid or expired authentication credentials (HTTP 401)
+  </Step>
+  <Step title="BadRequestError">
+    Invalid request parameters (HTTP 400)
+  </Step>
+  <Step title="ForbiddenError">
+    Insufficient permissions for this operation (HTTP 403)
+  </Step>
+  <Step title="NotFoundError">
+    Requested resource does not exist (HTTP 404)
+  </Step>
+  <Step title="RateLimitError">
+    Rate limit exceeded (HTTP 429)
+  </Step>
+  <Step title="ServerError">
+    Spotify API server error (HTTP 5xx)
+  </Step>
+</Steps>
+
+## Exception Types
+
+All exceptions are defined in `src/spotify_sdk/exceptions.py`.
+
+### SpotifyError
+
+Base exception for all Spotify SDK errors:
+
+```python
+class SpotifyError(Exception):
+    """Base exception for all Spotify SDK errors."""
+    
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        response_body: dict[str, Any] | None = None,
+    ) -> None:
+        self.message = message
+        self.status_code = status_code
+        self.response_body = response_body
+        super().__init__(message)
+```
+
+**Source**: `src/spotify_sdk/exceptions.py:8-20`
+
+<ParamField path="message" type="str">
+  Human-readable error message
+</ParamField>
+
+<ParamField path="status_code" type="int | None">
+  HTTP status code if the error came from an API response
+</ParamField>
+
+<ParamField path="response_body" type="dict[str, Any] | None">
+  Full response body from the API for debugging
+</ParamField>
+
+### AuthenticationError
+
+Raised when authentication credentials are invalid or expired:
+
+```python
+from spotify_sdk import SpotifyClient, AuthenticationError
+
+client = SpotifyClient(access_token="expired-token")
+
+try:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+except AuthenticationError as e:
+    print(f"Authentication failed: {e.message}")
+    # Re-authenticate or refresh token
+```
+
+**HTTP Status**: 401 Unauthorized
+
+**Source**: `src/spotify_sdk/exceptions.py:23-26`
+
+### BadRequestError
+
+Raised when request parameters are invalid:
+
+```python
+from spotify_sdk import SpotifyClient, BadRequestError
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    # Invalid limit (must be 1-50)
+    tracks = client.albums.get_tracks("4aawyAB9vmqN3uQ7FjRGTy", limit=100)
+except BadRequestError as e:
+    print(f"Invalid request: {e.message}")
+    print(f"Response: {e.response_body}")
+```
+
+**HTTP Status**: 400 Bad Request
+
+**Source**: `src/spotify_sdk/exceptions.py:29-32`
+
+### ForbiddenError
+
+Raised when you lack permissions for an operation:
+
+```python
+from spotify_sdk import SpotifyClient, ForbiddenError
+
+client = SpotifyClient.from_client_credentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+
+try:
+    # Requires user authorization, not client credentials
+    saved_albums = client.albums.get_saved()
+except ForbiddenError as e:
+    print(f"Insufficient permissions: {e.message}")
+    # Use authorization code flow instead
+```
+
+**HTTP Status**: 403 Forbidden
+
+**Source**: `src/spotify_sdk/exceptions.py:35-38`
+
+### NotFoundError
+
+Raised when a requested resource doesn't exist:
+
+```python
+from spotify_sdk import SpotifyClient, NotFoundError
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("invalid-album-id")
+except NotFoundError as e:
+    print(f"Album not found: {e.message}")
+    # Handle missing resource
+```
+
+**HTTP Status**: 404 Not Found
+
+**Source**: `src/spotify_sdk/exceptions.py:41-44`
+
+### RateLimitError
+
+Raised when you exceed Spotify's rate limits:
+
+```python
+class RateLimitError(SpotifyError):
+    """Rate limit exceeded."""
+    
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        response_body: dict[str, Any] | None = None,
+        *,
+        retry_after: int = 0,
+    ) -> None:
+        super().__init__(message, status_code, response_body)
+        self.retry_after = retry_after
+```
+
+**HTTP Status**: 429 Too Many Requests
+
+**Source**: `src/spotify_sdk/exceptions.py:47-59`
+
+<ParamField path="retry_after" type="int" default="0">
+  Number of seconds to wait before retrying, from the `Retry-After` header
+</ParamField>
+
+### ServerError
+
+Raised when Spotify's servers encounter an error:
+
+```python
+from spotify_sdk import SpotifyClient, ServerError
+import time
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+except ServerError as e:
+    print(f"Server error: {e.message}")
+    print(f"Status: {e.status_code}")
+    # Retry after a delay
+    time.sleep(5)
+```
+
+**HTTP Status**: 5xx Server Error
+
+**Source**: `src/spotify_sdk/exceptions.py:62-65`
+
+## Error Handling Patterns
+
+### Catch All SDK Errors
+
+Handle any SDK error with a single handler:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.exceptions import SpotifyError
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(f"{album.name} by {album.artists[0].name}")
+except SpotifyError as e:
+    print(f"Error: {e.message}")
+    if e.status_code:
+        print(f"HTTP Status: {e.status_code}")
+    if e.response_body:
+        print(f"Response: {e.response_body}")
+finally:
+    client.close()
+```
+
+### Catch Specific Errors
+
+Handle different error types separately:
+
+```python
+from spotify_sdk import (
+    SpotifyClient,
+    AuthenticationError,
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+)
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get(album_id)
+except AuthenticationError:
+    print("Token expired, re-authenticating...")
+    # Refresh token and retry
+except NotFoundError:
+    print(f"Album {album_id} not found")
+    # Try alternative or skip
+except BadRequestError as e:
+    print(f"Invalid request: {e.message}")
+    # Log and fix request parameters
+except ForbiddenError:
+    print("Insufficient permissions")
+    # Request additional scopes
+except RateLimitError as e:
+    print(f"Rate limited. Retry after {e.retry_after} seconds")
+    time.sleep(e.retry_after)
+    # Retry request
+except ServerError:
+    print("Spotify server error")
+    # Retry with exponential backoff
+finally:
+    client.close()
+```
+
+### Async Error Handling
+
+Error handling works the same way with `AsyncSpotifyClient`:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient, NotFoundError
+
+async def get_album(album_id: str):
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        try:
+            album = await client.albums.get(album_id)
+            return album
+        except NotFoundError:
+            print(f"Album {album_id} not found")
+            return None
+
+album = asyncio.run(get_album("4aawyAB9vmqN3uQ7FjRGTy"))
+```
+
+## Rate Limit Handling
+
+The SDK automatically retries rate-limited requests, but you may want custom handling:
+
+```python
+import time
+from spotify_sdk import SpotifyClient, RateLimitError
+
+client = SpotifyClient(access_token="your-access-token")
+
+def get_album_with_retry(album_id: str, max_attempts: int = 3):
+    for attempt in range(max_attempts):
+        try:
+            return client.albums.get(album_id)
+        except RateLimitError as e:
+            if attempt == max_attempts - 1:
+                raise
+            print(f"Rate limited. Waiting {e.retry_after} seconds...")
+            time.sleep(e.retry_after)
+    return None
+
+try:
+    album = get_album_with_retry("4aawyAB9vmqN3uQ7FjRGTy")
+    print(album.name)
+finally:
+    client.close()
+```
+
+**Source**: Rate limit handling in `src/spotify_sdk/_async/_base_client.py:146-154`
+
+<Info>
+The SDK automatically:
+- Retries up to 3 times (configurable with `max_retries`)
+- Respects the `Retry-After` header
+- Uses exponential backoff with jitter
+</Info>
+
+## Validation Errors
+
+The SDK validates request parameters and raises `ValueError` for invalid inputs:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    # Empty ID is invalid
+    album = client.albums.get("")
+except ValueError as e:
+    print(f"Invalid parameter: {e}")
+    # Output: "id cannot be empty"
+
+try:
+    # Empty list is invalid
+    albums = client.albums.get_several([])
+except ValueError as e:
+    print(f"Invalid parameter: {e}")
+    # Output: "ids cannot be empty"
+```
+
+**Source**: Example validation in `src/spotify_sdk/_async/services/albums.py:25-26`
+
+## Debugging Errors
+
+### Access Error Details
+
+All exceptions provide detailed information for debugging:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.exceptions import SpotifyError
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("invalid-id")
+except SpotifyError as e:
+    print(f"Message: {e.message}")
+    print(f"Status Code: {e.status_code}")
+    print(f"Response Body: {e.response_body}")
+    
+    # Access specific error details from response
+    if e.response_body and "error" in e.response_body:
+        error_info = e.response_body["error"]
+        if isinstance(error_info, dict):
+            print(f"Error Type: {error_info.get('status')}")
+            print(f"Error Message: {error_info.get('message')}")
+```
+
+### Log Errors
+
+Integrate with Python's logging:
+
+```python
+import logging
+from spotify_sdk import SpotifyClient
+from spotify_sdk.exceptions import SpotifyError
+
+logger = logging.getLogger(__name__)
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get(album_id)
+except SpotifyError as e:
+    logger.error(
+        "Spotify API error",
+        extra={
+            "message": e.message,
+            "status_code": e.status_code,
+            "response_body": e.response_body,
+            "album_id": album_id,
+        },
+    )
+    raise
+finally:
+    client.close()
+```
+
+## Common Error Scenarios
+
+### Expired Token
+
+```python
+from spotify_sdk import SpotifyClient, AuthenticationError
+from spotify_sdk.auth import ClientCredentials
+
+auth = ClientCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+
+client = SpotifyClient(auth_provider=auth)
+
+try:
+    # SDK automatically refreshes expired tokens
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+except AuthenticationError as e:
+    # Only raised if refresh fails
+    print(f"Authentication failed: {e.message}")
+finally:
+    client.close()
+```
+
+### Invalid Resource ID
+
+```python
+from spotify_sdk import SpotifyClient, NotFoundError, BadRequestError
+
+client = SpotifyClient(access_token="your-access-token")
+
+def get_album_safe(album_id: str):
+    try:
+        return client.albums.get(album_id)
+    except NotFoundError:
+        print(f"Album {album_id} does not exist")
+        return None
+    except BadRequestError:
+        print(f"Invalid album ID format: {album_id}")
+        return None
+
+album = get_album_safe("not-a-valid-id")
+```
+
+### Permission Denied
+
+```python
+from spotify_sdk import SpotifyClient, ForbiddenError
+from spotify_sdk.auth import AuthorizationCode
+
+# Authorization with insufficient scopes
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private"],  # Missing user-library-read
+)
+auth.authorize_local()
+
+client = SpotifyClient(auth_provider=auth)
+
+try:
+    saved_albums = client.albums.get_saved()
+except ForbiddenError:
+    print("Missing required scope: user-library-read")
+    # Re-authorize with correct scopes
+finally:
+    client.close()
+```
+
+### Network Errors
+
+```python
+import time
+from spotify_sdk import SpotifyClient
+from spotify_sdk.exceptions import SpotifyError
+
+client = SpotifyClient(
+    access_token="your-access-token",
+    max_retries=5,  # Increase retries for unreliable networks
+    timeout=60.0,  # Increase timeout
+)
+
+try:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+except SpotifyError as e:
+    if "Connection error" in e.message:
+        print("Network issue, check your connection")
+    else:
+        raise
+finally:
+    client.close()
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Always Use Context Managers">
+    Ensure resources are cleaned up even when errors occur:
+    
+    ```python
+    with SpotifyClient(access_token="token") as client:
+        album = client.albums.get("id")
+    # Client is closed even if an exception occurs
+    ```
+  </Step>
+  
+  <Step title="Catch Specific Exceptions">
+    Handle different error types appropriately:
+    
+    ```python
+    try:
+        album = client.albums.get(album_id)
+    except NotFoundError:
+        return None  # Resource not found
+    except RateLimitError as e:
+        time.sleep(e.retry_after)  # Rate limited
+        # Retry
+    ```
+  </Step>
+  
+  <Step title="Log Error Details">
+    Include context for debugging:
+    
+    ```python
+    except SpotifyError as e:
+        logger.error(f"Failed to get album {album_id}: {e.message}", 
+                     extra={"status_code": e.status_code})
+    ```
+  </Step>
+  
+  <Step title="Don't Ignore Errors">
+    Handle or re-raise errors rather than silently catching:
+    
+    ```python
+    try:
+        album = client.albums.get(album_id)
+    except NotFoundError:
+        logger.warning(f"Album {album_id} not found")
+        raise  # Re-raise for caller to handle
+    ```
+  </Step>
+</Steps>

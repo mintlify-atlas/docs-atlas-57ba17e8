@@ -1,0 +1,70 @@
+---
+title: Introduction
+description: A Python SDK for the Spotify Web API with full type safety, sync and async support, and automatic retry handling
+---
+
+The Spotify SDK for Python is a modern, fully-typed client library for the [Spotify Web API](https://developer.spotify.com/documentation/web-api). It provides both synchronous and asynchronous interfaces for building applications that interact with Spotify's music catalog, user data, and playback controls.
+
+<Note>
+This is an independent, community-developed library and is not affiliated with or endorsed by Spotify.
+</Note>
+
+## Key features
+
+The SDK is designed with developer experience and reliability in mind:
+
+<CardGroup cols={2}>
+  <Card title="Type-safe" icon="shield-check">
+    Full type hints with Pydantic models for all API responses. Get autocomplete and type checking in your IDE.
+  </Card>
+  <Card title="Sync and async" icon="bolt">
+    Dedicated `SpotifyClient` and `AsyncSpotifyClient` classes. Use the programming model that fits your application.
+  </Card>
+  <Card title="Automatic retries" icon="rotate">
+    Exponential backoff with jitter for rate limits and transient errors. Built-in resilience without extra code.
+  </Card>
+  <Card title="Context managers" icon="brackets-curly">
+    Clean resource management with `with` and `async with` support. No manual cleanup required.
+  </Card>
+</CardGroup>
+
+## Quick example
+
+Here's a minimal example showing how easy it is to get started:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+# Get an album
+album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+print(f"{album.name} by {album.artists[0].name}")
+# Output: "DeBÍ TiRAR MáS FOToS by Bad Bunny"
+
+client.close()
+```
+
+## What you can do
+
+The SDK provides access to all major Spotify API endpoints:
+
+- **Albums** - Get album details, tracks, and metadata
+- **Artists** - Retrieve artist information, top tracks, and related artists
+- **Tracks** - Access track details, audio features, and analysis
+- **Playlists** - Create, modify, and retrieve playlist data
+- **Search** - Search across albums, artists, tracks, playlists, and more
+- **User Library** - Manage saved albums, tracks, and shows
+- **Shows & Episodes** - Access podcast content
+- **Audiobooks & Chapters** - Retrieve audiobook information
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install the SDK using pip or uv and verify your setup
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first integration with a complete walkthrough
+  </Card>
+</CardGroup>

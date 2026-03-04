@@ -1,0 +1,297 @@
+---
+title: SpotifyClient
+description: Synchronous client for interacting with the Spotify Web API
+---
+
+# SpotifyClient
+
+The `SpotifyClient` class is the main synchronous client for interacting with the Spotify Web API. It provides access to all Spotify API services through dedicated service attributes.
+
+## Constructor
+
+```python
+SpotifyClient(
+    access_token: str | None = None,
+    *,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    auth_provider: AuthProvider | None = None,
+    timeout: float = 30.0,
+    max_retries: int = 3,
+)
+```
+
+Initialize a new Spotify client instance.
+
+### Parameters
+
+<ParamField path="access_token" type="str | None" default="None">
+  Spotify API access token. Use this if you already have a valid access token.
+</ParamField>
+
+<ParamField path="client_id" type="str | None" default="None">
+  Spotify API client ID. Use with `client_secret` for client credentials flow.
+</ParamField>
+
+<ParamField path="client_secret" type="str | None" default="None">
+  Spotify API client secret. Use with `client_id` for client credentials flow.
+</ParamField>
+
+<ParamField path="auth_provider" type="AuthProvider | None" default="None">
+  Custom auth provider for dynamic access token management. Provide this for advanced authentication scenarios.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Default request timeout in seconds. Controls how long to wait for API responses.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retries for failed requests. The client will automatically retry failed requests up to this limit.
+</ParamField>
+
+<Note>
+  You must provide exactly one of the following:
+  - `access_token`
+  - Both `client_id` and `client_secret`
+  - `auth_provider`
+  
+  Providing multiple authentication methods will raise a `ValueError`.
+</Note>
+
+### Examples
+
+<CodeGroup>
+
+```python With Access Token
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your_access_token")
+```
+
+```python With Client Credentials
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(
+    client_id="your_client_id",
+    client_secret="your_client_secret"
+)
+```
+
+```python With Custom Settings
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(
+    access_token="your_access_token",
+    timeout=60.0,
+    max_retries=5
+)
+```
+
+```python With Context Manager
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_access_token") as client:
+    album = client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    print(album.name)
+```
+
+</CodeGroup>
+
+## Service Attributes
+
+The `SpotifyClient` provides access to all Spotify API services through the following attributes:
+
+<ResponseField name="albums" type="AlbumService">
+  Service for interacting with album endpoints. Get album details, tracks, and more.
+</ResponseField>
+
+<ResponseField name="artists" type="ArtistService">
+  Service for interacting with artist endpoints. Get artist details, albums, top tracks, and related artists.
+</ResponseField>
+
+<ResponseField name="audiobooks" type="AudiobookService">
+  Service for interacting with audiobook endpoints. Get audiobook details and chapters.
+</ResponseField>
+
+<ResponseField name="chapters" type="ChapterService">
+  Service for interacting with audiobook chapter endpoints. Get chapter details.
+</ResponseField>
+
+<ResponseField name="episodes" type="EpisodeService">
+  Service for interacting with podcast episode endpoints. Get episode details.
+</ResponseField>
+
+<ResponseField name="library" type="LibraryService">
+  Service for managing the user's library. Save and retrieve albums, tracks, audiobooks, episodes, and shows.
+</ResponseField>
+
+<ResponseField name="playlists" type="PlaylistService">
+  Service for managing playlists. Create, update, and retrieve playlists and their items.
+</ResponseField>
+
+<ResponseField name="search" type="SearchService">
+  Service for searching Spotify content. Search for albums, artists, playlists, tracks, shows, episodes, and audiobooks.
+</ResponseField>
+
+<ResponseField name="shows" type="ShowService">
+  Service for interacting with podcast show endpoints. Get show details and episodes.
+</ResponseField>
+
+<ResponseField name="tracks" type="TrackService">
+  Service for interacting with track endpoints. Get track details, audio features, and audio analysis.
+</ResponseField>
+
+<ResponseField name="users" type="UserService">
+  Service for interacting with user endpoints. Get user profiles and manage following.
+</ResponseField>
+
+## Class Methods
+
+### from_client_credentials
+
+```python
+@classmethod
+SpotifyClient.from_client_credentials(
+    *,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    timeout: float = 30.0,
+    max_retries: int = 3,
+) -> SpotifyClient
+```
+
+Create a client using the client credentials flow. This is a convenience method for creating a client with client credentials authentication.
+
+#### Parameters
+
+<ParamField path="client_id" type="str | None" default="None">
+  Spotify API client ID.
+</ParamField>
+
+<ParamField path="client_secret" type="str | None" default="None">
+  Spotify API client secret.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Default request timeout in seconds.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retries for failed requests.
+</ParamField>
+
+#### Returns
+
+A new `SpotifyClient` instance configured with client credentials authentication.
+
+#### Example
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient.from_client_credentials(
+    client_id="your_client_id",
+    client_secret="your_client_secret"
+)
+```
+
+## Instance Methods
+
+### close
+
+```python
+def close() -> None
+```
+
+Close the client and release resources. This method should be called when you're done using the client to properly clean up network connections and other resources.
+
+#### Example
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your_access_token")
+try:
+    album = client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    print(album.name)
+finally:
+    client.close()
+```
+
+## Context Manager Support
+
+The `SpotifyClient` supports the context manager protocol, allowing you to use it with Python's `with` statement. The client will automatically close when the context exits.
+
+### Example
+
+```python
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_access_token") as client:
+    # Client is automatically closed when the block exits
+    album = client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    tracks = client.tracks.get(["track_id_1", "track_id_2"])
+    results = client.search.search("Bohemian Rhapsody", types=["track"])
+```
+
+## Usage Examples
+
+<CodeGroup>
+
+```python Get Album
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_access_token") as client:
+    album = client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    print(f"Album: {album.name}")
+    print(f"Artist: {album.artists[0].name}")
+    print(f"Release Date: {album.release_date}")
+```
+
+```python Search Tracks
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_access_token") as client:
+    results = client.search.search(
+        "Bohemian Rhapsody",
+        types=["track"],
+        limit=5
+    )
+    for track in results.tracks.items:
+        print(f"{track.name} by {track.artists[0].name}")
+```
+
+```python Get Artist's Top Tracks
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_access_token") as client:
+    artist = client.artists.get("0TnOYISbd1XYRBk9myaseg")
+    print(f"Artist: {artist.name}")
+    
+    top_tracks = client.artists.get_top_tracks(
+        "0TnOYISbd1XYRBk9myaseg",
+        market="US"
+    )
+    print("\nTop Tracks:")
+    for track in top_tracks:
+        print(f"- {track.name}")
+```
+
+```python Manage User Library
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_access_token") as client:
+    # Save albums to library
+    client.library.save_albums(["album_id_1", "album_id_2"])
+    
+    # Get saved albums
+    saved_albums = client.library.get_saved_albums(limit=20)
+    for item in saved_albums.items:
+        print(f"Saved: {item.album.name}")
+    
+    # Check if albums are saved
+    are_saved = client.library.check_saved_albums(["album_id_1"])
+    print(f"Album is saved: {are_saved[0]}")
+```
+
+</CodeGroup>

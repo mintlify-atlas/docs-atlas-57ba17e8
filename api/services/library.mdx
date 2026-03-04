@@ -1,0 +1,254 @@
+---
+title: "Library Service"
+description: "API reference for Spotify SDK library operations for saving, removing, and checking items in the user's library"
+---
+
+## Overview
+
+The `LibraryService` (sync) and `AsyncLibraryService` (async) provide methods for managing items in the current user's Spotify library. This service offers a unified interface for saving, removing, and checking the save status of various content types using Spotify URIs.
+
+<Note>
+Both sync and async versions are available. Import `LibraryService` for sync operations or `AsyncLibraryService` for async operations.
+
+All methods require appropriate user authorization scopes (`user-library-modify` or `user-library-read`).
+</Note>
+
+## Methods
+
+### save_items
+
+Save one or more items to the current user's library.
+
+```python
+async def save_items(uris: list[str]) -> None
+```
+
+<ParamField path="uris" type="list[str]" required>
+  Spotify URIs to save. Maximum of 40 URIs per request. URIs can be for albums, tracks, episodes, shows, or audiobooks.
+</ParamField>
+
+**Returns:** `None` - This method does not return a value.
+
+**Raises:** 
+- `ValueError` if `uris` is empty, contains empty values, or exceeds 40 items.
+
+<Note>
+Requires the `user-library-modify` scope.
+</Note>
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    # Save multiple tracks
+    track_uris = [
+        "spotify:track:11dFghVXANMlKmJXsNCbNl",
+        "spotify:track:20I6sIOMTCkB6w7ryavxtO",
+        "spotify:track:7qiZfU4dY1lWllzX7mPBI"
+    ]
+    
+    await client.library.save_items(track_uris)
+    print(f"Saved {len(track_uris)} tracks to your library")
+    
+    # Save albums
+    album_uris = [
+        "spotify:album:6DEjYFkNZh67HP7R9PSZvv",
+        "spotify:album:1ATL5GLyefJaxhQzSPVrLX"
+    ]
+    
+    await client.library.save_items(album_uris)
+    print(f"Saved {len(album_uris)} albums to your library")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    uris = [
+        "spotify:track:11dFghVXANMlKmJXsNCbNl",
+        "spotify:album:6DEjYFkNZh67HP7R9PSZvv"
+    ]
+    
+    client.library.save_items(uris)
+    print("Items saved successfully")
+```
+</CodeGroup>
+
+<Tip>
+You can mix different content types in a single request as long as they're all valid Spotify URIs.
+</Tip>
+
+---
+
+### remove_items
+
+Remove one or more items from the current user's library.
+
+```python
+async def remove_items(uris: list[str]) -> None
+```
+
+<ParamField path="uris" type="list[str]" required>
+  Spotify URIs to remove. Maximum of 40 URIs per request. URIs can be for albums, tracks, episodes, shows, or audiobooks.
+</ParamField>
+
+**Returns:** `None` - This method does not return a value.
+
+**Raises:** 
+- `ValueError` if `uris` is empty, contains empty values, or exceeds 40 items.
+
+<Note>
+Requires the `user-library-modify` scope.
+</Note>
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    # Remove tracks from library
+    track_uris = [
+        "spotify:track:11dFghVXANMlKmJXsNCbNl",
+        "spotify:track:20I6sIOMTCkB6w7ryavxtO"
+    ]
+    
+    await client.library.remove_items(track_uris)
+    print(f"Removed {len(track_uris)} tracks from your library")
+    
+    # Remove episodes
+    episode_uris = ["spotify:episode:512ojhOuo1ktJprKbVcKyQ"]
+    await client.library.remove_items(episode_uris)
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    uris = ["spotify:track:11dFghVXANMlKmJXsNCbNl"]
+    client.library.remove_items(uris)
+    print("Items removed successfully")
+```
+</CodeGroup>
+
+---
+
+### check_contains
+
+Check if items are saved in the current user's library.
+
+```python
+async def check_contains(uris: list[str]) -> list[bool]
+```
+
+<ParamField path="uris" type="list[str]" required>
+  Spotify URIs to check. Maximum of 40 URIs per request. URIs can be for albums, tracks, episodes, shows, or audiobooks.
+</ParamField>
+
+**Returns:** `list[bool]` - A list of boolean values aligned to the input URIs, where `True` indicates the item is saved in the library.
+
+**Raises:** 
+- `ValueError` if `uris` is empty, contains empty values, exceeds 40 items, or the response shape is not `list[bool]`.
+
+<Note>
+Requires the `user-library-read` scope.
+</Note>
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    # Check multiple items
+    uris = [
+        "spotify:track:11dFghVXANMlKmJXsNCbNl",
+        "spotify:track:20I6sIOMTCkB6w7ryavxtO",
+        "spotify:album:6DEjYFkNZh67HP7R9PSZvv",
+        "spotify:episode:512ojhOuo1ktJprKbVcKyQ"
+    ]
+    
+    is_saved = await client.library.check_contains(uris)
+    
+    for uri, saved in zip(uris, is_saved):
+        status = "saved" if saved else "not saved"
+        print(f"{uri}: {status}")
+    
+    # Filter only saved items
+    saved_uris = [uri for uri, saved in zip(uris, is_saved) if saved]
+    print(f"\nYou have {len(saved_uris)} saved items out of {len(uris)} checked")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    uris = [
+        "spotify:track:11dFghVXANMlKmJXsNCbNl",
+        "spotify:album:6DEjYFkNZh67HP7R9PSZvv"
+    ]
+    
+    is_saved = client.library.check_contains(uris)
+    
+    for uri, saved in zip(uris, is_saved):
+        print(f"{uri}: {'saved' if saved else 'not saved'}")
+```
+</CodeGroup>
+
+<Tip>
+Use this method to update UI state (like heart/save buttons) or to filter content based on save status.
+</Tip>
+
+## URI Format
+
+Spotify URIs follow the format: `spotify:{type}:{id}`
+
+Supported types include:
+- `track` - Music tracks
+- `album` - Albums
+- `episode` - Podcast episodes
+- `show` - Podcast shows
+- `audiobook` - Audiobooks
+
+### Example URIs
+
+```python
+# Track URI
+"spotify:track:11dFghVXANMlKmJXsNCbNl"
+
+# Album URI
+"spotify:album:6DEjYFkNZh67HP7R9PSZvv"
+
+# Episode URI
+"spotify:episode:512ojhOuo1ktJprKbVcKyQ"
+
+# Show URI
+"spotify:show:4rOoJ6Egrf8K2IrywzwOMk"
+
+# Audiobook URI
+"spotify:audiobook:7iHfbu1YPACw6oZPAFJtqe"
+```
+
+## Validation Rules
+
+All methods validate URIs according to these rules:
+
+1. The `uris` list cannot be empty
+2. Maximum of 40 URIs per request
+3. URIs cannot contain empty strings or `None` values
+4. URIs must follow the Spotify URI format
+
+## Required Scopes
+
+<ResponseField name="user-library-modify" type="OAuth Scope">
+  Required for `save_items()` and `remove_items()` methods.
+</ResponseField>
+
+<ResponseField name="user-library-read" type="OAuth Scope">
+  Required for `check_contains()` method.
+</ResponseField>
+
+## See Also
+
+- [Albums Service](/api/services/albums) - Album-specific library operations
+- [Episodes Service](/api/services/episodes) - Episode-specific library operations
+- [Authentication](/concepts/authentication) - OAuth scopes and authorization flows

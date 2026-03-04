@@ -1,0 +1,516 @@
+---
+title: Clients
+description: Understand the SpotifyClient and AsyncSpotifyClient classes, configuration options, and resource management
+---
+
+The Spotify SDK provides two client classes for interacting with the Spotify API: `SpotifyClient` for synchronous code and `AsyncSpotifyClient` for asynchronous code.
+
+## Client Classes
+
+### SpotifyClient
+
+The synchronous client for blocking I/O operations:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+print(f"{album.name} by {album.artists[0].name}")
+
+client.close()
+```
+
+**Source**: `src/spotify_sdk/_sync/_client.py:22-115`
+
+### AsyncSpotifyClient
+
+The asynchronous client for non-blocking I/O with `async`/`await`:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    client = AsyncSpotifyClient(access_token="your-access-token")
+    
+    album = await client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(f"{album.name} by {album.artists[0].name}")
+    
+    await client.close()
+
+asyncio.run(main())
+```
+
+**Source**: `src/spotify_sdk/_async/_client.py:22-115`
+
+<Info>
+Both clients share the same API surface. The only difference is that `AsyncSpotifyClient` methods are async and must be awaited.
+</Info>
+
+## When to Use Each Client
+
+<CardGroup cols={2}>
+  <Card title="Use SpotifyClient" icon="sync">
+    - Simple scripts and CLI tools
+    - Synchronous web frameworks (Flask, Django)
+    - Jupyter notebooks
+    - Sequential data processing
+  </Card>
+  
+  <Card title="Use AsyncSpotifyClient" icon="bolt">
+    - Async frameworks (FastAPI, aiohttp)
+    - Concurrent requests
+    - High-performance applications
+    - WebSocket servers
+  </Card>
+</CardGroup>
+
+## Client Initialization
+
+Both clients support three initialization methods:
+
+<Tabs>
+  <Tab title="Access Token">
+    ```python
+    from spotify_sdk import SpotifyClient
+    
+    client = SpotifyClient(access_token="your-access-token")
+    ```
+  </Tab>
+  
+  <Tab title="Client Credentials">
+    ```python
+    from spotify_sdk import SpotifyClient
+    
+    client = SpotifyClient(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+    )
+    ```
+  </Tab>
+  
+  <Tab title="Auth Provider">
+    ```python
+    from spotify_sdk import SpotifyClient
+    from spotify_sdk.auth import AuthorizationCode
+    
+    auth = AuthorizationCode(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+        redirect_uri="http://127.0.0.1:8080/callback",
+    )
+    auth.authorize_local()
+    
+    client = SpotifyClient(auth_provider=auth)
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+You must provide exactly one authentication method. Providing multiple methods raises a `ValueError`.
+</Warning>
+
+## Configuration Options
+
+Customize client behavior with configuration parameters:
+
+### Timeout
+
+Set the default request timeout in seconds:
+
+```python
+client = SpotifyClient(
+    access_token="your-access-token",
+    timeout=30.0,  # Default: 30.0 seconds
+)
+```
+
+<ParamField path="timeout" type="float" default="30.0">
+  Default request timeout in seconds. Applies to all HTTP requests made by the client.
+</ParamField>
+
+### Max Retries
+
+Configure automatic retry behavior:
+
+```python
+client = SpotifyClient(
+    access_token="your-access-token",
+    max_retries=3,  # Default: 3
+)
+```
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retry attempts for failed requests. The SDK automatically retries on:
+  - Connection errors and timeouts
+  - Rate limit responses (429)
+  - Server errors (5xx)
+</ParamField>
+
+<Info>
+Retries use exponential backoff with jitter:
+- Initial delay: 0.5 seconds
+- Maximum delay: 8.0 seconds
+- Multiplier: 2x per retry
+</Info>
+
+### Complete Configuration
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(
+    access_token="your-access-token",
+    timeout=15.0,  # 15 second timeout
+    max_retries=5,  # Retry up to 5 times
+)
+```
+
+## Factory Methods
+
+Convenience methods for common initialization patterns:
+
+### from_client_credentials
+
+Create a client using the client credentials flow:
+
+<CodeGroup>
+```python Sync
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient.from_client_credentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    timeout=30.0,
+    max_retries=3,
+)
+```
+
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient.from_client_credentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    timeout=30.0,
+    max_retries=3,
+)
+```
+</CodeGroup>
+
+**Source**: `src/spotify_sdk/_sync/_client.py:90-108`
+
+## Service Properties
+
+Clients provide access to API services through properties:
+
+```python
+client = SpotifyClient(access_token="your-access-token")
+
+# Access different services
+client.albums      # Album operations
+client.artists     # Artist operations
+client.audiobooks  # Audiobook operations
+client.chapters    # Chapter operations
+client.episodes    # Episode operations
+client.library     # User library operations
+client.playlists   # Playlist operations
+client.search      # Search operations
+client.shows       # Show/podcast operations
+client.tracks      # Track operations
+client.users       # User profile operations
+```
+
+Each service is initialized when the client is created:
+
+```python
+# From source: src/spotify_sdk/_sync/_client.py:73-84
+self.albums = AlbumService(self._base_client)
+self.audiobooks = AudiobookService(self._base_client)
+self.chapters = ChapterService(self._base_client)
+self.episodes = EpisodeService(self._base_client)
+self.library = LibraryService(self._base_client)
+self.search = SearchService(self._base_client)
+self.shows = ShowService(self._base_client)
+self.tracks = TrackService(self._base_client)
+self.artists = ArtistService(self._base_client)
+self.playlists = PlaylistService(self._base_client)
+self.users = UserService(self._base_client)
+```
+
+## Context Managers
+
+Use context managers for automatic resource cleanup:
+
+### Synchronous Context Manager
+
+```python
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your-access-token") as client:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(album.name)
+
+# Client is automatically closed
+```
+
+**Source**: `src/spotify_sdk/_sync/_client.py:110-114`
+
+### Asynchronous Context Manager
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        album = await client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+        print(album.name)
+    
+    # Client is automatically closed
+
+asyncio.run(main())
+```
+
+**Source**: `src/spotify_sdk/_async/_client.py:110-114`
+
+<Note>
+Context managers automatically call `close()` (or `await close()`) when exiting the context, ensuring proper resource cleanup.
+</Note>
+
+## Resource Management
+
+### Manual Cleanup
+
+Explicitly close clients when done:
+
+<CodeGroup>
+```python Sync
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(album.name)
+finally:
+    client.close()
+```
+
+```python Async
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    client = AsyncSpotifyClient(access_token="your-access-token")
+    
+    try:
+        album = await client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+        print(album.name)
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+### What Gets Closed
+
+Calling `client.close()` releases:
+
+1. **HTTP connections**: Closes the underlying `httpx.Client` or `httpx.AsyncClient`
+2. **Auth provider**: Closes the auth provider's HTTP client (if using an auth provider)
+
+```python
+# From source: src/spotify_sdk/_sync/_client.py:86-88
+def close(self) -> None:
+    """Close the client and release resources."""
+    self._base_client.close()
+```
+
+<Warning>
+Failing to close clients may result in:
+- Resource warnings about unclosed sockets
+- Connection pool exhaustion
+- Memory leaks in long-running applications
+</Warning>
+
+## Long-Lived Clients
+
+For long-running applications, reuse a single client instance:
+
+```python
+from spotify_sdk import SpotifyClient
+
+class MusicService:
+    def __init__(self):
+        self.client = SpotifyClient.from_client_credentials(
+            client_id="your-client-id",
+            client_secret="your-client-secret",
+        )
+    
+    def get_album(self, album_id: str):
+        return self.client.albums.get(album_id)
+    
+    def search_tracks(self, query: str):
+        return self.client.search.search(q=query, types=["track"])
+    
+    def close(self):
+        self.client.close()
+
+# Use the service
+service = MusicService()
+try:
+    album = service.get_album("4aawyAB9vmqN3uQ7FjRGTy")
+    results = service.search_tracks("kind of blue")
+finally:
+    service.close()
+```
+
+## Multiple Clients
+
+You can use multiple clients simultaneously:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.auth import AuthorizationCode, ClientCredentials
+
+# Public data client (client credentials)
+public_client = SpotifyClient.from_client_credentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+
+# User-specific client (authorization code)
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-library-read"],
+)
+auth.authorize_local()
+user_client = SpotifyClient(auth_provider=auth)
+
+try:
+    # Get public album data
+    album = public_client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    
+    # Get user's saved albums
+    saved = user_client.albums.get_saved(limit=10)
+finally:
+    public_client.close()
+    user_client.close()
+```
+
+## Error Handling
+
+Clients raise specific exceptions for different error conditions:
+
+```python
+from spotify_sdk import (
+    SpotifyClient,
+    AuthenticationError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+)
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("invalid-id")
+except AuthenticationError:
+    print("Invalid or expired token")
+except NotFoundError:
+    print("Album not found")
+except RateLimitError as e:
+    print(f"Rate limited. Retry after {e.retry_after} seconds")
+except ServerError:
+    print("Spotify server error")
+finally:
+    client.close()
+```
+
+See [Error Handling](/concepts/error-handling) for more details.
+
+## Thread Safety
+
+<Warning>
+`SpotifyClient` is **not thread-safe**. Do not share client instances across threads.
+</Warning>
+
+For multi-threaded applications, create a client per thread:
+
+```python
+import threading
+from spotify_sdk import SpotifyClient
+
+def fetch_album(album_id: str):
+    # Each thread gets its own client
+    client = SpotifyClient(access_token="your-access-token")
+    try:
+        album = client.albums.get(album_id)
+        print(f"{album.name} by {album.artists[0].name}")
+    finally:
+        client.close()
+
+threads = [
+    threading.Thread(target=fetch_album, args=(album_id,))
+    for album_id in ["4aawyAB9vmqN3uQ7FjRGTy", "5K79FLRUCSysQnVESLcTdb"]
+]
+
+for thread in threads:
+    thread.start()
+for thread in threads:
+    thread.join()
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Context Managers">
+    Prefer `with` or `async with` for automatic resource cleanup:
+    
+    ```python
+    with SpotifyClient(access_token="token") as client:
+        album = client.albums.get("id")
+    ```
+  </Step>
+  
+  <Step title="Reuse Clients">
+    Create one client and reuse it for multiple requests to benefit from connection pooling:
+    
+    ```python
+    client = SpotifyClient(access_token="token")
+    for album_id in album_ids:
+        album = client.albums.get(album_id)
+    client.close()
+    ```
+  </Step>
+  
+  <Step title="Configure Timeouts">
+    Set appropriate timeouts for your use case:
+    
+    ```python
+    client = SpotifyClient(
+        access_token="token",
+        timeout=15.0,  # Shorter timeout for interactive apps
+    )
+    ```
+  </Step>
+  
+  <Step title="Handle Errors">
+    Always handle potential exceptions:
+    
+    ```python
+    from spotify_sdk import NotFoundError
+    
+    try:
+        album = client.albums.get(album_id)
+    except NotFoundError:
+        print("Album not found")
+    ```
+  </Step>
+</Steps>

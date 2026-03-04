@@ -1,0 +1,269 @@
+---
+title: Track Models
+description: Pydantic models for Spotify track objects
+---
+
+# Track Models
+
+The track models represent track data from the Spotify API. Tracks can be embedded in albums and playlists or returned with full details.
+
+## SimplifiedTrack
+
+Basic track information embedded in other objects like albums.
+
+### Fields
+
+<ResponseField name="artists" type="list[SimplifiedArtist]" required>
+  The artists who performed the track. See [Artist Models](/api/models/artist#simplifiedartist).
+</ResponseField>
+
+<ResponseField name="available_markets" type="list[str] | None">
+  A list of ISO 3166-1 alpha-2 country codes where the track is available
+</ResponseField>
+
+<ResponseField name="disc_number" type="int" required>
+  The disc number (usually 1 unless the album consists of multiple discs)
+</ResponseField>
+
+<ResponseField name="duration_ms" type="int" required>
+  The duration of the track in milliseconds
+</ResponseField>
+
+<ResponseField name="explicit" type="bool" required>
+  Whether the track has explicit lyrics
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this track. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details of the track
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the track
+</ResponseField>
+
+<ResponseField name="is_playable" type="bool | None">
+  Whether the track is playable in the current market
+</ResponseField>
+
+<ResponseField name="linked_from" type="LinkedFrom | None">
+  Information about the originally requested track when track relinking is applied. See [Common Models](/api/models/common#linkedfrom).
+</ResponseField>
+
+<ResponseField name="restrictions" type="Restriction | None">
+  Content restrictions applied to this track. See [Common Models](/api/models/common#restriction).
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the track
+</ResponseField>
+
+<ResponseField name="preview_url" type="str | None">
+  A URL to a 30-second preview (MP3) of the track, or `None` if not available
+</ResponseField>
+
+<ResponseField name="track_number" type="int" required>
+  The number of the track on the album/disc
+</ResponseField>
+
+<ResponseField name="type" type="Literal['track']" required>
+  The object type, always "track"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the track
+</ResponseField>
+
+<ResponseField name="is_local" type="bool" required>
+  Whether the track is from a local file
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "artists": [
+    {
+      "external_urls": {
+        "spotify": "https://open.spotify.com/artist/xyz789"
+      },
+      "href": "https://api.spotify.com/v1/artists/xyz789",
+      "id": "xyz789",
+      "name": "Example Artist",
+      "type": "artist",
+      "uri": "spotify:artist:xyz789"
+    }
+  ],
+  "available_markets": ["US", "GB", "CA"],
+  "disc_number": 1,
+  "duration_ms": 234000,
+  "explicit": false,
+  "external_urls": {
+    "spotify": "https://open.spotify.com/track/track123"
+  },
+  "href": "https://api.spotify.com/v1/tracks/track123",
+  "id": "track123",
+  "is_playable": true,
+  "name": "Example Track",
+  "preview_url": "https://p.scdn.co/mp3-preview/track123",
+  "track_number": 3,
+  "type": "track",
+  "uri": "spotify:track:track123",
+  "is_local": false
+}
+```
+
+## Track
+
+Complete track object with album, popularity, and external IDs. Extends `SimplifiedTrack`.
+
+### Additional Fields
+
+<ResponseField name="album" type="SimplifiedAlbum" required>
+  The album the track appears on. See [Album Models](/api/models/album#simplifiedalbum).
+</ResponseField>
+
+<ResponseField name="external_ids" type="ExternalIds" required>
+  External identifiers for the track (ISRC). See [Common Models](/api/models/common#externalids).
+</ResponseField>
+
+<ResponseField name="popularity" type="int" required>
+  The popularity of the track, between 0 and 100, with 100 being the most popular. Calculated based on total plays and recency.
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "id": "track123",
+  "name": "Example Track",
+  "artists": [
+    {
+      "id": "xyz789",
+      "name": "Example Artist",
+      "type": "artist",
+      "uri": "spotify:artist:xyz789"
+    }
+  ],
+  "duration_ms": 234000,
+  "explicit": false,
+  "track_number": 3,
+  "disc_number": 1,
+  "is_local": false,
+  "album": {
+    "id": "abc123",
+    "name": "Example Album",
+    "album_type": "album",
+    "total_tracks": 12,
+    "release_date": "2023-01-15",
+    "images": [
+      {
+        "url": "https://i.scdn.co/image/abc123",
+        "height": 640,
+        "width": 640
+      }
+    ]
+  },
+  "external_ids": {
+    "isrc": "USABC1234567"
+  },
+  "popularity": 82
+}
+```
+
+## Model Relationships
+
+<Note>
+  **Track Model Hierarchy**
+  
+  - `SimplifiedTrack` contains basic track information without album details
+  - `Track` extends `SimplifiedTrack` and includes a `SimplifiedAlbum` object, external IDs, and popularity
+  
+  The simplified version is used when tracks are embedded in album responses, while the full `Track` model is returned from track-specific endpoints and playlist items.
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.track import Track, SimplifiedTrack
+
+# Parse a track from the API response
+track = Track(**api_response)
+
+# Access track properties
+print(f"Track: {track.name}")
+print(f"Artists: {', '.join(a.name for a in track.artists)}")
+print(f"Album: {track.album.name}")
+print(f"Duration: {track.duration_ms // 1000} seconds")
+print(f"Popularity: {track.popularity}/100")
+
+# Check if explicit
+if track.explicit:
+    print("⚠ Explicit content")
+
+# Check preview availability
+if track.preview_url:
+    print(f"Preview: {track.preview_url}")
+else:
+    print("No preview available")
+
+# Get ISRC if available
+if track.external_ids.isrc:
+    print(f"ISRC: {track.external_ids.isrc}")
+```
+
+## Common Use Cases
+
+<Expandable title="Understanding Track Linking">
+  Spotify uses "track relinking" to ensure users can play content even when specific recordings aren't available in their market. When this happens:
+  
+  - The returned track will be the available version in the user's market
+  - The `linked_from` field will contain information about the originally requested track
+  - Both tracks represent the same song but may be different recordings
+  
+  Example:
+  ```python
+  if track.linked_from:
+      print(f"Playing alternative version")
+      print(f"Original ID: {track.linked_from.id}")
+      print(f"Current ID: {track.id}")
+  ```
+</Expandable>
+
+<Expandable title="Working with Track Duration">
+  Track duration is provided in milliseconds. Here's how to convert it:
+  
+  ```python
+  # Convert to seconds
+  duration_seconds = track.duration_ms // 1000
+  
+  # Convert to minutes and seconds
+  minutes = track.duration_ms // 60000
+  seconds = (track.duration_ms % 60000) // 1000
+  print(f"{minutes}:{seconds:02d}")
+  
+  # Convert to timedelta
+  from datetime import timedelta
+  duration = timedelta(milliseconds=track.duration_ms)
+  print(duration)
+  ```
+</Expandable>
+
+<Expandable title="Local Files vs Spotify Tracks">
+  Tracks can come from Spotify's catalog or be local files:
+  
+  - `is_local = False`: Standard Spotify track
+  - `is_local = True`: Local file imported by the user
+  
+  Local tracks may have limited metadata and won't have Spotify IDs or preview URLs:
+  
+  ```python
+  if track.is_local:
+      print("Local file - limited metadata available")
+  else:
+      print(f"Spotify track ID: {track.id}")
+  ```
+</Expandable>

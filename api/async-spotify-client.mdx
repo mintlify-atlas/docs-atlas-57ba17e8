@@ -1,0 +1,347 @@
+---
+title: AsyncSpotifyClient
+description: Asynchronous client for interacting with the Spotify Web API
+---
+
+# AsyncSpotifyClient
+
+The `AsyncSpotifyClient` class is the main asynchronous client for interacting with the Spotify Web API. It provides async access to all Spotify API services through dedicated service attributes.
+
+## Constructor
+
+```python
+AsyncSpotifyClient(
+    access_token: str | None = None,
+    *,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    auth_provider: AsyncAuthProvider | None = None,
+    timeout: float = 30.0,
+    max_retries: int = 3,
+)
+```
+
+Initialize a new async Spotify client instance.
+
+### Parameters
+
+<ParamField path="access_token" type="str | None" default="None">
+  Spotify API access token. Use this if you already have a valid access token.
+</ParamField>
+
+<ParamField path="client_id" type="str | None" default="None">
+  Spotify API client ID. Use with `client_secret` for client credentials flow.
+</ParamField>
+
+<ParamField path="client_secret" type="str | None" default="None">
+  Spotify API client secret. Use with `client_id` for client credentials flow.
+</ParamField>
+
+<ParamField path="auth_provider" type="AsyncAuthProvider | None" default="None">
+  Custom async auth provider for dynamic access token management. Provide this for advanced authentication scenarios.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Default request timeout in seconds. Controls how long to wait for API responses.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retries for failed requests. The client will automatically retry failed requests up to this limit.
+</ParamField>
+
+<Note>
+  You must provide exactly one of the following:
+  - `access_token`
+  - Both `client_id` and `client_secret`
+  - `auth_provider`
+  
+  Providing multiple authentication methods will raise a `ValueError`.
+</Note>
+
+### Examples
+
+<CodeGroup>
+
+```python With Access Token
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(access_token="your_access_token")
+```
+
+```python With Client Credentials
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(
+    client_id="your_client_id",
+    client_secret="your_client_secret"
+)
+```
+
+```python With Custom Settings
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(
+    access_token="your_access_token",
+    timeout=60.0,
+    max_retries=5
+)
+```
+
+```python With Async Context Manager
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_access_token") as client:
+    album = await client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    print(album.name)
+```
+
+</CodeGroup>
+
+## Service Attributes
+
+The `AsyncSpotifyClient` provides access to all Spotify API services through the following async service attributes:
+
+<ResponseField name="albums" type="AsyncAlbumService">
+  Async service for interacting with album endpoints. Get album details, tracks, and more.
+</ResponseField>
+
+<ResponseField name="artists" type="AsyncArtistService">
+  Async service for interacting with artist endpoints. Get artist details, albums, top tracks, and related artists.
+</ResponseField>
+
+<ResponseField name="audiobooks" type="AsyncAudiobookService">
+  Async service for interacting with audiobook endpoints. Get audiobook details and chapters.
+</ResponseField>
+
+<ResponseField name="chapters" type="AsyncChapterService">
+  Async service for interacting with audiobook chapter endpoints. Get chapter details.
+</ResponseField>
+
+<ResponseField name="episodes" type="AsyncEpisodeService">
+  Async service for interacting with podcast episode endpoints. Get episode details.
+</ResponseField>
+
+<ResponseField name="library" type="AsyncLibraryService">
+  Async service for managing the user's library. Save and retrieve albums, tracks, audiobooks, episodes, and shows.
+</ResponseField>
+
+<ResponseField name="playlists" type="AsyncPlaylistService">
+  Async service for managing playlists. Create, update, and retrieve playlists and their items.
+</ResponseField>
+
+<ResponseField name="search" type="AsyncSearchService">
+  Async service for searching Spotify content. Search for albums, artists, playlists, tracks, shows, episodes, and audiobooks.
+</ResponseField>
+
+<ResponseField name="shows" type="AsyncShowService">
+  Async service for interacting with podcast show endpoints. Get show details and episodes.
+</ResponseField>
+
+<ResponseField name="tracks" type="AsyncTrackService">
+  Async service for interacting with track endpoints. Get track details, audio features, and audio analysis.
+</ResponseField>
+
+<ResponseField name="users" type="AsyncUserService">
+  Async service for interacting with user endpoints. Get user profiles and manage following.
+</ResponseField>
+
+## Class Methods
+
+### from_client_credentials
+
+```python
+@classmethod
+AsyncSpotifyClient.from_client_credentials(
+    *,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+    timeout: float = 30.0,
+    max_retries: int = 3,
+) -> AsyncSpotifyClient
+```
+
+Create an async client using the client credentials flow. This is a convenience method for creating a client with client credentials authentication.
+
+#### Parameters
+
+<ParamField path="client_id" type="str | None" default="None">
+  Spotify API client ID.
+</ParamField>
+
+<ParamField path="client_secret" type="str | None" default="None">
+  Spotify API client secret.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Default request timeout in seconds.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retries for failed requests.
+</ParamField>
+
+#### Returns
+
+A new `AsyncSpotifyClient` instance configured with client credentials authentication.
+
+#### Example
+
+```python
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient.from_client_credentials(
+    client_id="your_client_id",
+    client_secret="your_client_secret"
+)
+```
+
+## Instance Methods
+
+### close
+
+```python
+async def close() -> None
+```
+
+Close the client and release resources. This async method should be awaited when you're done using the client to properly clean up network connections and other resources.
+
+#### Example
+
+```python
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(access_token="your_access_token")
+try:
+    album = await client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    print(album.name)
+finally:
+    await client.close()
+```
+
+## Async Context Manager Support
+
+The `AsyncSpotifyClient` supports the async context manager protocol, allowing you to use it with Python's `async with` statement. The client will automatically close when the context exits.
+
+### Example
+
+```python
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_access_token") as client:
+    # Client is automatically closed when the block exits
+    album = await client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+    tracks = await client.tracks.get(["track_id_1", "track_id_2"])
+    results = await client.search.search("Bohemian Rhapsody", types=["track"])
+```
+
+## Usage Examples
+
+<CodeGroup>
+
+```python Get Album
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your_access_token") as client:
+        album = await client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+        print(f"Album: {album.name}")
+        print(f"Artist: {album.artists[0].name}")
+        print(f"Release Date: {album.release_date}")
+
+asyncio.run(main())
+```
+
+```python Search Tracks
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your_access_token") as client:
+        results = await client.search.search(
+            "Bohemian Rhapsody",
+            types=["track"],
+            limit=5
+        )
+        for track in results.tracks.items:
+            print(f"{track.name} by {track.artists[0].name}")
+
+asyncio.run(main())
+```
+
+```python Get Artist's Top Tracks
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your_access_token") as client:
+        artist = await client.artists.get("0TnOYISbd1XYRBk9myaseg")
+        print(f"Artist: {artist.name}")
+        
+        top_tracks = await client.artists.get_top_tracks(
+            "0TnOYISbd1XYRBk9myaseg",
+            market="US"
+        )
+        print("\nTop Tracks:")
+        for track in top_tracks:
+            print(f"- {track.name}")
+
+asyncio.run(main())
+```
+
+```python Manage User Library
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your_access_token") as client:
+        # Save albums to library
+        await client.library.save_albums(["album_id_1", "album_id_2"])
+        
+        # Get saved albums
+        saved_albums = await client.library.get_saved_albums(limit=20)
+        for item in saved_albums.items:
+            print(f"Saved: {item.album.name}")
+        
+        # Check if albums are saved
+        are_saved = await client.library.check_saved_albums(["album_id_1"])
+        print(f"Album is saved: {are_saved[0]}")
+
+asyncio.run(main())
+```
+
+```python Concurrent Requests
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your_access_token") as client:
+        # Fetch multiple resources concurrently
+        album_task = client.albums.get("3RlHPKEsbd6W01sIPC5k8v")
+        artist_task = client.artists.get("0TnOYISbd1XYRBk9myaseg")
+        search_task = client.search.search("Bohemian Rhapsody", types=["track"])
+        
+        # Await all tasks concurrently
+        album, artist, search_results = await asyncio.gather(
+            album_task,
+            artist_task,
+            search_task
+        )
+        
+        print(f"Album: {album.name}")
+        print(f"Artist: {artist.name}")
+        print(f"Found {len(search_results.tracks.items)} tracks")
+
+asyncio.run(main())
+```
+
+</CodeGroup>
+
+## Performance Benefits
+
+The `AsyncSpotifyClient` is ideal for applications that need to make multiple concurrent API requests or integrate with async frameworks like FastAPI, aiohttp, or Starlette. Key benefits include:
+
+- Concurrent request execution with `asyncio.gather()`
+- Non-blocking I/O for better resource utilization
+- Seamless integration with async web frameworks
+- Improved throughput for batch operations

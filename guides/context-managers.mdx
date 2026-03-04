@@ -1,0 +1,423 @@
+---
+title: Context Managers
+description: Using context managers with the Spotify SDK for automatic resource cleanup and best practices for both sync and async clients
+---
+
+# Context Managers
+
+Both `SpotifyClient` and `AsyncSpotifyClient` support Python's context manager protocol, allowing you to use `with` and `async with` statements for automatic resource cleanup.
+
+## Why Use Context Managers?
+
+Context managers ensure that resources are properly cleaned up when you're done with them, even if an exception occurs. This is especially important for:
+
+- **HTTP connections** - Properly closing underlying httpx clients
+- **Auth providers** - Releasing any resources held by authentication providers
+- **Memory management** - Preventing resource leaks in long-running applications
+
+<Warning>
+Failing to close clients can lead to resource leaks, especially in long-running applications or when creating multiple client instances.
+</Warning>
+
+## Sync Client with Context Manager
+
+The `SpotifyClient` implements the `__enter__` and `__exit__` methods to support the `with` statement.
+
+### Basic Usage
+
+```python
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your-access-token") as client:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(f"{album.name} by {album.artists[0].name}")
+# Client automatically closed when exiting the with block
+```
+
+### Implementation Details
+
+The context manager is implemented in `SpotifyClient` (src/spotify_sdk/_sync/_client.py:110-114):
+
+```python
+def __enter__(self) -> "SpotifyClient":
+    return self
+
+def __exit__(self, *args: Any) -> None:
+    self.close()
+```
+
+When you exit the `with` block, `__exit__` is called automatically, which calls the `close()` method to release resources.
+
+### The close() Method
+
+The `close()` method (src/spotify_sdk/_sync/_client.py:86-88) shuts down the underlying HTTP client:
+
+```python
+def close(self) -> None:
+    """Close the client and release resources."""
+    self._base_client.close()
+```
+
+## Async Client with Context Manager
+
+The `AsyncSpotifyClient` implements the `__aenter__` and `__aexit__` methods to support the `async with` statement.
+
+### Basic Usage
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        album = await client.albums.get("4Uv86qWpGTxf7fU7lG5X6F")
+        print(f"{album.name} by {album.artists[0].name}")
+    # Client automatically closed when exiting the async with block
+
+asyncio.run(main())
+```
+
+### Implementation Details
+
+The async context manager is implemented in `AsyncSpotifyClient` (src/spotify_sdk/_async/_client.py:110-114):
+
+```python
+async def __aenter__(self) -> "AsyncSpotifyClient":
+    return self
+
+async def __aexit__(self, *args: Any) -> None:
+    await self.close()
+```
+
+### The close() Method
+
+The async `close()` method (src/spotify_sdk/_async/_client.py:86-88) properly closes the async HTTP client:
+
+```python
+async def close(self) -> None:
+    """Close the client and release resources."""
+    await self._base_client.close()
+```
+
+The `AsyncBaseClient.close()` method (src/spotify_sdk/_async/_base_client.py:230-236) handles cleanup:
+
+```python
+async def close(self) -> None:
+    """Close the HTTP client."""
+    if self._client is not None:
+        await self._client.aclose()
+        self._client = None
+    if self._auth_provider and hasattr(self._auth_provider, "close"):
+        await self._auth_provider.close()
+```
+
+## Comparison: With vs Without Context Managers
+
+<CodeGroup>
+
+```python Using Context Manager (Recommended)
+from spotify_sdk import SpotifyClient
+
+# Resources automatically cleaned up
+with SpotifyClient(access_token="your-access-token") as client:
+    album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+    print(album.name)
+# close() called automatically, even if an exception occurs
+```
+
+```python Manual Cleanup
+from spotify_sdk import SpotifyClient
+
+# Manual cleanup required
+client = SpotifyClient(access_token="your-access-token")
+try:
+    album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+    print(album.name)
+finally:
+    client.close()  # Must remember to close
+```
+
+```python Without Cleanup (Bad)
+from spotify_sdk import SpotifyClient
+
+# Resources not cleaned up - can cause leaks!
+client = SpotifyClient(access_token="your-access-token")
+album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+print(album.name)
+# HTTP client never closed - resource leak!
+```
+
+</CodeGroup>
+
+<Tip>
+Always use context managers (`with` or `async with`) unless you have a specific reason to manage the lifecycle manually.
+</Tip>
+
+## Exception Handling with Context Managers
+
+Context managers ensure cleanup even when exceptions occur:
+
+<CodeGroup>
+
+```python Sync Exception Handling
+from spotify_sdk import SpotifyClient, NotFoundError
+
+try:
+    with SpotifyClient(access_token="your-access-token") as client:
+        album = client.albums.get("invalid_id")
+        print(album.name)
+except NotFoundError as e:
+    print(f"Album not found: {e.message}")
+# Client is still properly closed despite the exception
+```
+
+```python Async Exception Handling
+import asyncio
+from spotify_sdk import AsyncSpotifyClient, NotFoundError
+
+async def main():
+    try:
+        async with AsyncSpotifyClient(access_token="your-access-token") as client:
+            album = await client.albums.get("invalid_id")
+            print(album.name)
+    except NotFoundError as e:
+        print(f"Album not found: {e.message}")
+    # Client is still properly closed despite the exception
+
+asyncio.run(main())
+```
+
+</CodeGroup>
+
+## Multiple Operations with One Client
+
+You can perform multiple operations within a single context:
+
+<Steps>
+
+### Sync Client Example
+
+```python
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your-access-token") as client:
+    # Fetch an album
+    album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+    print(f"Album: {album.name}")
+    
+    # Fetch album tracks
+    tracks = client.albums.get_tracks(album.id, limit=10)
+    for track in tracks.items:
+        print(f"{track.track_number}. {track.name}")
+    
+    # Search for artists
+    results = client.search.search(
+        q="Bad Bunny",
+        types=["artist"],
+        limit=5,
+    )
+# All resources cleaned up after this block
+```
+
+### Async Client Example
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        # Fetch an album
+        album = await client.albums.get("4Uv86qWpGTxf7fU7lG5X6F")
+        print(f"Album: {album.name}")
+        
+        # Fetch album tracks
+        tracks = await client.albums.get_tracks(album.id, limit=10)
+        for track in tracks.items:
+            print(f"{track.track_number}. {track.name}")
+        
+        # Fetch artist
+        artist = await client.artists.get(album.artists[0].id)
+        print(f"Artist: {artist.name}")
+    # All resources cleaned up after this block
+
+asyncio.run(main())
+```
+
+</Steps>
+
+## Nested Context Managers
+
+You can use multiple clients simultaneously with nested context managers:
+
+```python
+from spotify_sdk import SpotifyClient
+
+# Two different clients with different tokens
+with SpotifyClient(access_token="token-1") as client1:
+    with SpotifyClient(access_token="token-2") as client2:
+        album1 = client1.albums.get("5K79FLRUCSysQnVESLcTdb")
+        album2 = client2.albums.get("4Uv86qWpGTxf7fU7lG5X6F")
+        print(f"Album 1: {album1.name}")
+        print(f"Album 2: {album2.name}")
+# Both clients are properly closed
+```
+
+Or use a more compact syntax:
+
+```python
+from spotify_sdk import SpotifyClient
+
+with (
+    SpotifyClient(access_token="token-1") as client1,
+    SpotifyClient(access_token="token-2") as client2,
+):
+    album1 = client1.albums.get("5K79FLRUCSysQnVESLcTdb")
+    album2 = client2.albums.get("4Uv86qWpGTxf7fU7lG5X6F")
+```
+
+## Long-Lived Clients
+
+For long-running applications (like web servers), you may want to create a client once and reuse it:
+
+### FastAPI Example
+
+```python
+from fastapi import FastAPI
+from spotify_sdk import AsyncSpotifyClient
+import os
+
+app = FastAPI()
+
+# Create client at startup
+client: AsyncSpotifyClient | None = None
+
+@app.on_event("startup")
+async def startup_event():
+    global client
+    client = AsyncSpotifyClient.from_client_credentials(
+        client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+    )
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global client
+    if client:
+        await client.close()
+
+@app.get("/albums/{album_id}")
+async def get_album(album_id: str):
+    album = await client.albums.get(album_id)
+    return {"name": album.name, "artist": album.artists[0].name}
+```
+
+### Flask Example
+
+```python
+from flask import Flask, g
+from spotify_sdk import SpotifyClient
+import os
+
+app = Flask(__name__)
+
+def get_client():
+    if 'client' not in g:
+        g.client = SpotifyClient.from_client_credentials(
+            client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+            client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+        )
+    return g.client
+
+@app.teardown_appcontext
+def close_client(error):
+    client = g.pop('client', None)
+    if client is not None:
+        client.close()
+
+@app.route('/albums/<album_id>')
+def get_album(album_id):
+    client = get_client()
+    album = client.albums.get(album_id)
+    return {"name": album.name, "artist": album.artists[0].name}
+```
+
+## Best Practices
+
+<Accordion title="Always use context managers for automatic cleanup">
+Context managers guarantee that resources are released, even if exceptions occur:
+
+```python
+# Good
+with SpotifyClient(access_token="token") as client:
+    album = client.albums.get("id")
+
+# Bad
+client = SpotifyClient(access_token="token")
+album = client.albums.get("id")
+# Forgot to close!
+```
+</Accordion>
+
+<Accordion title="Reuse client instances within a context">
+Creating a new client for every request is inefficient:
+
+```python
+# Good: One client, multiple operations
+with SpotifyClient(access_token="token") as client:
+    album1 = client.albums.get("id1")
+    album2 = client.albums.get("id2")
+    album3 = client.albums.get("id3")
+
+# Bad: Multiple clients
+with SpotifyClient(access_token="token") as client:
+    album1 = client.albums.get("id1")
+with SpotifyClient(access_token="token") as client:
+    album2 = client.albums.get("id2")
+```
+</Accordion>
+
+<Accordion title="Use async context managers with AsyncSpotifyClient">
+Always use `async with` for async clients:
+
+```python
+# Good
+async with AsyncSpotifyClient(access_token="token") as client:
+    album = await client.albums.get("id")
+
+# Bad: Missing async
+with AsyncSpotifyClient(access_token="token") as client:
+    album = await client.albums.get("id")  # Won't work!
+```
+</Accordion>
+
+<Accordion title="For web applications, manage lifecycle at app level">
+In web frameworks, create the client at startup and close at shutdown:
+
+```python
+# FastAPI example
+@app.on_event("startup")
+async def startup():
+    app.state.spotify = AsyncSpotifyClient(...)
+
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.spotify.close()
+```
+</Accordion>
+
+<Accordion title="Handle cleanup in exception scenarios">
+Even with context managers, be explicit about error handling:
+
+```python
+from spotify_sdk import SpotifyClient, SpotifyError
+
+try:
+    with SpotifyClient(access_token="token") as client:
+        album = client.albums.get("id")
+except SpotifyError as e:
+    # Handle the error
+    print(f"Error: {e.message}")
+# Client is still closed properly
+```
+</Accordion>

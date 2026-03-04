@@ -1,0 +1,637 @@
+---
+title: "PlaylistService"
+description: "Complete API reference for managing Spotify playlists - create, modify, and manage playlist content"
+---
+
+## Overview
+
+The `AsyncPlaylistService` provides comprehensive operations for managing Spotify playlists, including retrieving playlist details, managing tracks, and customizing playlist metadata and cover images.
+
+<Note>
+  This service is available in both async (`AsyncPlaylistService`) and sync (`PlaylistService`) variants.
+</Note>
+
+## Get Playlist
+
+Retrieve full details of a Spotify playlist.
+
+```python
+async def get(
+    self,
+    id: str,
+    market: str | None = None,
+    fields: str | None = None,
+) -> Playlist
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the playlist.
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code. If specified, only content available in that market will be returned.
+</ParamField>
+
+<ParamField path="fields" type="str | None">
+  Filters for the query: a comma-separated list of fields to return. If omitted, all fields are returned.
+  
+  Examples:
+  - `"description,uri"` - Get only description and URI
+  - `"tracks.items(added_at,added_by.id)"` - Get added date and user ID
+  - `"tracks.items(track(name,href,album(name,href)))"` - Nested field selection
+  - Prefix with `!` to exclude: `"tracks.items(track(name,href,album(!name,href)))"`
+</ParamField>
+
+### Returns
+
+<ResponseField name="Playlist" type="Playlist">
+  Complete playlist object including tracks, metadata, and owner information.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Async
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(auth_token="your_token")
+
+# Get full playlist details
+playlist = await client.playlists.get("37i9dQZF1DXcBWIGoYBM5M")
+print(f"Playlist: {playlist.name}")
+print(f"Owner: {playlist.owner.display_name}")
+print(f"Tracks: {playlist.tracks.total}")
+
+# Get only specific fields
+playlist = await client.playlists.get(
+    "37i9dQZF1DXcBWIGoYBM5M",
+    fields="name,description,tracks.total"
+)
+```
+
+```python Sync
+from spotify_sdk import SpotifySyncClient
+
+client = SpotifySyncClient(auth_token="your_token")
+
+playlist = client.playlists.get("37i9dQZF1DXcBWIGoYBM5M")
+print(f"Playlist: {playlist.name}")
+```
+</CodeGroup>
+
+---
+
+## Get Playlist Items
+
+Retrieve paginated tracks and episodes from a playlist.
+
+```python
+async def get_items(
+    self,
+    id: str,
+    market: str | None = None,
+    fields: str | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> Page[PlaylistTrack]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the playlist.
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code for market-specific content.
+</ParamField>
+
+<ParamField path="fields" type="str | None">
+  Comma-separated list of fields to return. Supports dot notation and parentheses for nested fields.
+</ParamField>
+
+<ParamField path="limit" type="int | None">
+  Maximum number of items to return. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int | None">
+  Index of the first item to return. Default: 0.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[PlaylistTrack]" type="Page[PlaylistTrack]">
+  Paginated response containing playlist tracks with added_at timestamps and user information.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Async
+# Get first page of tracks
+tracks_page = await client.playlists.get_items(
+    "37i9dQZF1DXcBWIGoYBM5M",
+    limit=50
+)
+
+for item in tracks_page.items:
+    print(f"{item.track.name} - added by {item.added_by.id}")
+
+# Get next page
+if tracks_page.next:
+    next_page = await client.playlists.get_items(
+        "37i9dQZF1DXcBWIGoYBM5M",
+        limit=50,
+        offset=50
+    )
+```
+
+```python Sync
+tracks_page = client.playlists.get_items("37i9dQZF1DXcBWIGoYBM5M")
+for item in tracks_page.items:
+    print(item.track.name)
+```
+</CodeGroup>
+
+---
+
+## Get Current User's Playlists
+
+Retrieve playlists owned or followed by the authenticated user.
+
+```python
+async def get_for_current_user(
+    self,
+    limit: int | None = None,
+    offset: int | None = None
+) -> Page[SimplifiedPlaylist]
+```
+
+<ParamField path="limit" type="int | None">
+  Maximum number of playlists to return. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int | None">
+  Index of the first playlist to return. Default: 0. Maximum: 100.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[SimplifiedPlaylist]" type="Page[SimplifiedPlaylist]">
+  Paginated list of simplified playlist objects.
+</ResponseField>
+
+### Example
+
+```python
+playlists = await client.playlists.get_for_current_user(limit=50)
+for playlist in playlists.items:
+    print(f"{playlist.name} - {playlist.tracks.total} tracks")
+```
+
+---
+
+## Get User's Playlists
+
+Retrieve playlists owned or followed by a specific user.
+
+```python
+async def get_for_user(
+    self,
+    id: str,
+    limit: int | None = None,
+    offset: int | None = None
+) -> Page[SimplifiedPlaylist]
+```
+
+<ParamField path="id" type="str" required>
+  The user's Spotify ID.
+</ParamField>
+
+<ParamField path="limit" type="int | None">
+  Maximum number of playlists. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int | None">
+  Index of first playlist. Default: 0. Maximum: 100.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[SimplifiedPlaylist]" type="Page[SimplifiedPlaylist]">
+  Paginated list of playlists for the specified user.
+</ResponseField>
+
+### Example
+
+```python
+user_playlists = await client.playlists.get_for_user(
+    "spotify_user_id",
+    limit=20
+)
+```
+
+---
+
+## Create Playlist
+
+Create a new playlist for a Spotify user.
+
+```python
+async def create(
+    self,
+    user_id: str,
+    name: str,
+    public: bool | None = None,
+    collaborative: bool | None = None,
+    description: str | None = None,
+) -> SimplifiedPlaylist
+```
+
+<ParamField path="user_id" type="str" required>
+  The Spotify user ID that will own the playlist.
+</ParamField>
+
+<ParamField path="name" type="str" required>
+  The name for the new playlist.
+</ParamField>
+
+<ParamField path="public" type="bool | None">
+  Whether the playlist should be public. Must be `False` if `collaborative` is `True`.
+</ParamField>
+
+<ParamField path="collaborative" type="bool | None">
+  Whether the playlist should be collaborative. If `True`, `public` must be `False`.
+</ParamField>
+
+<ParamField path="description" type="str | None">
+  Optional description for the playlist.
+</ParamField>
+
+### Returns
+
+<ResponseField name="SimplifiedPlaylist" type="SimplifiedPlaylist">
+  The newly created playlist object.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Public Playlist
+playlist = await client.playlists.create(
+    user_id="user_spotify_id",
+    name="My Awesome Playlist",
+    description="The best tracks of 2024",
+    public=True
+)
+print(f"Created: {playlist.id}")
+```
+
+```python Collaborative Playlist
+playlist = await client.playlists.create(
+    user_id="user_spotify_id",
+    name="Shared Playlist",
+    collaborative=True,
+    public=False  # Required for collaborative
+)
+```
+</CodeGroup>
+
+<Note>
+  When creating a collaborative playlist, `public` must be set to `False`.
+</Note>
+
+---
+
+## Change Playlist Details
+
+Update playlist metadata including name, description, and privacy settings.
+
+```python
+async def change_details(
+    self,
+    id: str,
+    name: str | None = None,
+    public: bool | None = None,
+    collaborative: bool | None = None,
+    description: str | None = None,
+) -> None
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify playlist ID.
+</ParamField>
+
+<ParamField path="name" type="str | None">
+  New name for the playlist.
+</ParamField>
+
+<ParamField path="public" type="bool | None">
+  New public/private status. Cannot be `True` if `collaborative` is `True`.
+</ParamField>
+
+<ParamField path="collaborative" type="bool | None">
+  New collaborative status. Cannot be `True` if `public` is `True`.
+</ParamField>
+
+<ParamField path="description" type="str | None">
+  New description for the playlist.
+</ParamField>
+
+### Example
+
+```python
+# Update playlist details
+await client.playlists.change_details(
+    id="playlist_id",
+    name="Updated Name",
+    description="New description for 2026"
+)
+
+# Make playlist private
+await client.playlists.change_details(
+    id="playlist_id",
+    public=False
+)
+```
+
+<Tip>
+  At least one field must be provided. The method raises `ValueError` if no changes are specified.
+</Tip>
+
+---
+
+## Add Items to Playlist
+
+Add tracks or episodes to a playlist.
+
+```python
+async def add_items(
+    self,
+    id: str,
+    uris: list[str],
+    position: int | None = None
+) -> str
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify playlist ID.
+</ParamField>
+
+<ParamField path="uris" type="list[str]" required>
+  List of Spotify track or episode URIs to add (e.g., `["spotify:track:...", "spotify:episode:..."]`).
+</ParamField>
+
+<ParamField path="position" type="int | None">
+  Zero-based position where items should be inserted. If omitted, items are appended.
+</ParamField>
+
+### Returns
+
+<ResponseField name="snapshot_id" type="str">
+  New playlist snapshot ID for concurrency control.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Append Tracks
+# Add tracks to end of playlist
+snapshot_id = await client.playlists.add_items(
+    id="playlist_id",
+    uris=[
+        "spotify:track:4iV5W9uYEdYUVa79Axb7Rh",
+        "spotify:track:1301WleyT98MSxVHPZCA6M"
+    ]
+)
+print(f"Snapshot: {snapshot_id}")
+```
+
+```python Insert at Position
+# Insert tracks at specific position
+snapshot_id = await client.playlists.add_items(
+    id="playlist_id",
+    uris=["spotify:track:4iV5W9uYEdYUVa79Axb7Rh"],
+    position=0  # Insert at beginning
+)
+```
+</CodeGroup>
+
+---
+
+## Remove Items from Playlist
+
+Remove tracks or episodes from a playlist.
+
+```python
+async def remove_items(
+    self,
+    id: str,
+    *,
+    uris: list[str] | None = None,
+    tracks: list[dict[str, str | list[int]]] | None = None,
+    snapshot_id: str | None = None,
+) -> str
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify playlist ID.
+</ParamField>
+
+<ParamField path="uris" type="list[str] | None">
+  URIs to remove (all occurrences). Mutually exclusive with `tracks`.
+</ParamField>
+
+<ParamField path="tracks" type="list[dict] | None">
+  Explicit track objects with `uri` and optional `positions` list. Mutually exclusive with `uris`.
+  
+  Format: `[{"uri": "spotify:track:...", "positions": [0, 3]}]`
+</ParamField>
+
+<ParamField path="snapshot_id" type="str | None">
+  Playlist snapshot ID for optimistic concurrency control.
+</ParamField>
+
+### Returns
+
+<ResponseField name="snapshot_id" type="str">
+  New playlist snapshot ID.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Remove All Occurrences
+# Remove all instances of specific tracks
+snapshot_id = await client.playlists.remove_items(
+    id="playlist_id",
+    uris=[
+        "spotify:track:4iV5W9uYEdYUVa79Axb7Rh",
+        "spotify:track:1301WleyT98MSxVHPZCA6M"
+    ]
+)
+```
+
+```python Remove Specific Positions
+# Remove tracks at specific positions
+snapshot_id = await client.playlists.remove_items(
+    id="playlist_id",
+    tracks=[
+        {
+            "uri": "spotify:track:4iV5W9uYEdYUVa79Axb7Rh",
+            "positions": [0, 5, 10]
+        }
+    ]
+)
+```
+</CodeGroup>
+
+<Note>
+  You must provide exactly one of `uris` or `tracks`. Providing both or neither raises a `ValueError`.
+</Note>
+
+---
+
+## Reorder or Replace Playlist Items
+
+Reorder existing items or replace all playlist content.
+
+```python
+async def reorder_or_replace_items(
+    self,
+    id: str,
+    uris: list[str] | None = None,
+    range_start: int | None = None,
+    insert_before: int | None = None,
+    range_length: int | None = None,
+    snapshot_id: str | None = None,
+) -> str
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify playlist ID.
+</ParamField>
+
+<ParamField path="uris" type="list[str] | None">
+  **Replace mode**: Complete list of URIs to replace all playlist content.
+</ParamField>
+
+<ParamField path="range_start" type="int | None">
+  **Reorder mode**: Starting index of items to move.
+</ParamField>
+
+<ParamField path="insert_before" type="int | None">
+  **Reorder mode**: Target index where items should be inserted.
+</ParamField>
+
+<ParamField path="range_length" type="int | None">
+  **Reorder mode**: Number of items to move. Default: 1.
+</ParamField>
+
+<ParamField path="snapshot_id" type="str | None">
+  Playlist snapshot ID for concurrency control.
+</ParamField>
+
+### Returns
+
+<ResponseField name="snapshot_id" type="str">
+  New playlist snapshot ID.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Replace All Content
+# Replace entire playlist
+snapshot_id = await client.playlists.reorder_or_replace_items(
+    id="playlist_id",
+    uris=[
+        "spotify:track:4iV5W9uYEdYUVa79Axb7Rh",
+        "spotify:track:1301WleyT98MSxVHPZCA6M",
+        "spotify:track:6rqhFgbbKwnb9MLmUQDhG6"
+    ]
+)
+```
+
+```python Reorder Tracks
+# Move tracks from position 5-7 to position 2
+snapshot_id = await client.playlists.reorder_or_replace_items(
+    id="playlist_id",
+    range_start=5,
+    insert_before=2,
+    range_length=3
+)
+```
+</CodeGroup>
+
+<Tip>
+  This method operates in two mutually exclusive modes: **replace** (when `uris` is provided) or **reorder** (when `range_start` and `insert_before` are provided).
+</Tip>
+
+---
+
+## Get Playlist Cover Image
+
+Retrieve the cover image(s) for a playlist.
+
+```python
+async def get_cover_image(self, id: str) -> list[Image]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the playlist.
+</ParamField>
+
+### Returns
+
+<ResponseField name="list[Image]" type="list[Image]">
+  List of image objects with URL, height, and width information.
+</ResponseField>
+
+### Example
+
+```python
+images = await client.playlists.get_cover_image("37i9dQZF1DXcBWIGoYBM5M")
+for img in images:
+    print(f"{img.width}x{img.height}: {img.url}")
+```
+
+---
+
+## Upload Playlist Cover Image
+
+Upload a custom cover image for a playlist.
+
+```python
+async def upload_cover_image(
+    self,
+    id: str,
+    image_base64_jpeg: str
+) -> None
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify playlist ID.
+</ParamField>
+
+<ParamField path="image_base64_jpeg" type="str" required>
+  Base64-encoded JPEG image data (maximum 256KB).
+</ParamField>
+
+### Example
+
+```python
+import base64
+
+# Read and encode image
+with open("cover.jpg", "rb") as f:
+    image_data = base64.b64encode(f.read()).decode("utf-8")
+
+# Upload cover
+await client.playlists.upload_cover_image(
+    id="playlist_id",
+    image_base64_jpeg=image_data
+)
+```
+
+<Note>
+  The image must be in JPEG format and encoded as base64. Maximum file size is 256KB.
+</Note>

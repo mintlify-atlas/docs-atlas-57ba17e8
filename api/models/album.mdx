@@ -1,0 +1,232 @@
+---
+title: Album Models
+description: Pydantic models for Spotify album objects
+---
+
+# Album Models
+
+The album models represent album data from the Spotify API. Albums contain tracks, copyrights, and label information.
+
+## SimplifiedAlbum
+
+Basic album information embedded in other objects like tracks.
+
+### Fields
+
+<ResponseField name="album_type" type="str" required>
+  The type of the album (e.g., "album", "single", "compilation")
+</ResponseField>
+
+<ResponseField name="total_tracks" type="int" required>
+  The total number of tracks in the album
+</ResponseField>
+
+<ResponseField name="available_markets" type="list[str] | None">
+  A list of ISO 3166-1 alpha-2 country codes where the album is available. May be `None` if market data is restricted.
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this album. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details of the album
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the album
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Cover art for the album in various sizes. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the album
+</ResponseField>
+
+<ResponseField name="release_date" type="str" required>
+  The date the album was first released (format depends on precision)
+</ResponseField>
+
+<ResponseField name="release_date_precision" type="str" required>
+  The precision of the release date: "year", "month", or "day"
+</ResponseField>
+
+<ResponseField name="restrictions" type="Restriction | None">
+  Content restrictions applied to this album. See [Common Models](/api/models/common#restriction).
+</ResponseField>
+
+<ResponseField name="type" type="Literal['album']" required>
+  The object type, always "album"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the album
+</ResponseField>
+
+<ResponseField name="artists" type="list[SimplifiedArtist]" required>
+  The artists who performed the album. See [Artist Models](/api/models/artist#simplifiedartist).
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "album_type": "album",
+  "total_tracks": 12,
+  "available_markets": ["US", "GB", "CA"],
+  "external_urls": {
+    "spotify": "https://open.spotify.com/album/abc123"
+  },
+  "href": "https://api.spotify.com/v1/albums/abc123",
+  "id": "abc123",
+  "images": [
+    {
+      "url": "https://i.scdn.co/image/abc123",
+      "height": 640,
+      "width": 640
+    }
+  ],
+  "name": "Example Album",
+  "release_date": "2023-01-15",
+  "release_date_precision": "day",
+  "type": "album",
+  "uri": "spotify:album:abc123",
+  "artists": [
+    {
+      "external_urls": {
+        "spotify": "https://open.spotify.com/artist/xyz789"
+      },
+      "href": "https://api.spotify.com/v1/artists/xyz789",
+      "id": "xyz789",
+      "name": "Example Artist",
+      "type": "artist",
+      "uri": "spotify:artist:xyz789"
+    }
+  ]
+}
+```
+
+## Album
+
+Complete album object with tracks, copyrights, and label information. Extends `SimplifiedAlbum`.
+
+### Additional Fields
+
+<ResponseField name="tracks" type="Page[SimplifiedTrack]" required>
+  Paginated list of simplified tracks in the album. See [Common Models](/api/models/common#page) and [Track Models](/api/models/track#simplifiedtrack).
+</ResponseField>
+
+<ResponseField name="copyrights" type="list[Copyright]" required>
+  Copyright statements for the album. See [Common Models](/api/models/common#copyright).
+</ResponseField>
+
+<ResponseField name="external_ids" type="ExternalIds" required>
+  External identifiers for the album (EAN, UPC). See [Common Models](/api/models/common#externalids).
+</ResponseField>
+
+<ResponseField name="label" type="str" required>
+  The label that released the album
+</ResponseField>
+
+<ResponseField name="popularity" type="int" required>
+  The popularity of the album, between 0 and 100, with 100 being the most popular
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "album_type": "album",
+  "total_tracks": 12,
+  "external_urls": { "spotify": "https://open.spotify.com/album/abc123" },
+  "id": "abc123",
+  "name": "Example Album",
+  "tracks": {
+    "href": "https://api.spotify.com/v1/albums/abc123/tracks",
+    "items": [
+      {
+        "id": "track123",
+        "name": "Track 1",
+        "track_number": 1,
+        "duration_ms": 180000
+      }
+    ],
+    "limit": 50,
+    "next": null,
+    "offset": 0,
+    "previous": null,
+    "total": 12
+  },
+  "copyrights": [
+    {
+      "text": "2023 Example Records",
+      "type": "C"
+    }
+  ],
+  "external_ids": {
+    "upc": "00000000000000"
+  },
+  "label": "Example Records",
+  "popularity": 85
+}
+```
+
+## SavedAlbum
+
+Represents an album saved in a user's library with metadata about when it was saved.
+
+### Fields
+
+<ResponseField name="added_at" type="datetime" required>
+  The timestamp when the album was saved to the user's library
+</ResponseField>
+
+<ResponseField name="album" type="Album" required>
+  The complete album object
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "added_at": "2023-12-01T10:30:00Z",
+  "album": {
+    "id": "abc123",
+    "name": "Example Album",
+    "album_type": "album"
+  }
+}
+```
+
+## Model Relationships
+
+<Note>
+  **Album Model Hierarchy**
+  
+  - `SimplifiedAlbum` contains basic album information and a list of `SimplifiedArtist` objects
+  - `Album` extends `SimplifiedAlbum` and adds a `Page` of `SimplifiedTrack` objects, copyrights, and label info
+  - `SavedAlbum` wraps a complete `Album` with a timestamp
+  
+  The simplified version is used when albums are embedded in other responses (like in `Track` objects), while the full `Album` model is returned from album-specific endpoints.
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.album import Album, SimplifiedAlbum, SavedAlbum
+
+# Parse an album from the API response
+album = Album(**api_response)
+
+# Access album properties
+print(f"Album: {album.name}")
+print(f"Artist: {album.artists[0].name}")
+print(f"Release Date: {album.release_date}")
+print(f"Tracks: {album.tracks.total}")
+
+# Iterate through tracks
+for track in album.tracks.items:
+    print(f"  {track.track_number}. {track.name}")
+```

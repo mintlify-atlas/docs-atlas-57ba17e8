@@ -1,0 +1,135 @@
+---
+title: "AccessToken Authentication"
+description: "Direct access token authentication for the Spotify SDK"
+---
+
+## Overview
+
+The simplest authentication method for the Spotify SDK is using a direct access token. This approach is ideal for:
+
+- Quick prototyping and testing
+- Short-lived applications
+- Scenarios where you manually obtain tokens from the Spotify Developer Dashboard
+- Server-side scripts with pre-generated tokens
+
+<Warning>
+Access tokens expire after 1 hour. This method does not support automatic token refresh. For production applications requiring long-lived access, use [Client Credentials](/api/auth/client-credentials) or [Authorization Code](/api/auth/authorization-code) flows.
+</Warning>
+
+## Basic Usage
+
+### Creating a Client with Access Token
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+# Use the client
+album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+print(f"{album.name} by {album.artists[0].name}")
+
+client.close()
+```
+
+### Using Context Managers
+
+```python
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your-access-token") as client:
+    album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(album.name)
+```
+
+### Async Support
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        album = await client.albums.get("4Uv86qWpGTxf7fU7lG5X6F")
+        print(f"{album.name} by {album.artists[0].name}")
+
+asyncio.run(main())
+```
+
+## Constructor Parameters
+
+<ParamField path="access_token" type="str" required>
+  A valid Spotify access token. You can obtain one from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) or through OAuth flows.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  Request timeout in seconds.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum number of retry attempts for failed requests. The SDK automatically retries on connection errors, timeouts, rate limits (429), and server errors (5xx).
+</ParamField>
+
+## Token Expiration Handling
+
+Access tokens expire after 1 hour. When using direct access token authentication, you must handle expiration manually:
+
+```python
+from spotify_sdk import SpotifyClient, AuthenticationError
+
+def get_data_with_token_refresh():
+    access_token = get_fresh_token()  # Your token refresh logic
+    
+    with SpotifyClient(access_token=access_token) as client:
+        try:
+            album = client.albums.get("album_id_123")
+            return album
+        except AuthenticationError as e:
+            # Token expired - get a new one
+            new_token = get_fresh_token()
+            
+            # Create a new client with the refreshed token
+            with SpotifyClient(access_token=new_token) as new_client:
+                album = new_client.albums.get("album_id_123")
+                return album
+```
+
+<Note>
+For automatic token refresh, consider using [ClientCredentials](/api/auth/client-credentials) or [AuthorizationCode](/api/auth/authorization-code) authentication providers.
+</Note>
+
+## Getting an Access Token
+
+<Steps>
+  <Step title="Create a Spotify App">
+    Visit the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and create a new application.
+  </Step>
+  
+  <Step title="Get Your Credentials">
+    Note your Client ID and Client Secret from the app settings.
+  </Step>
+  
+  <Step title="Generate a Token">
+    Use the Spotify Web API Console or implement an OAuth flow to generate an access token. For quick testing, you can use the [Spotify Web API Console](https://developer.spotify.com/console/).
+  </Step>
+</Steps>
+
+## When to Use Access Token Authentication
+
+**Use access token authentication when:**
+- Building quick prototypes or proof-of-concepts
+- Running one-off scripts or data analysis tasks
+- Testing API endpoints manually
+- You have a secure way to refresh tokens externally
+
+**Avoid access token authentication when:**
+- Building production applications (use Client Credentials or Authorization Code instead)
+- You need automatic token refresh
+- You need to access user-specific endpoints (use Authorization Code flow)
+- Your application runs continuously (tokens expire after 1 hour)
+
+## Related
+
+- [Client Credentials Flow](/api/auth/client-credentials) - Automatic token refresh for app-only authentication
+- [Authorization Code Flow](/api/auth/authorization-code) - User authentication with automatic refresh
+- [Error Handling](/concepts/error-handling) - Handling authentication errors

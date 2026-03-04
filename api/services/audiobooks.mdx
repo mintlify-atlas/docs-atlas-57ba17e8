@@ -1,0 +1,218 @@
+---
+title: "Audiobooks Service"
+description: "API reference for Spotify SDK audiobook operations including retrieving audiobooks and chapters"
+---
+
+## Overview
+
+The `AudiobookService` (sync) and `AsyncAudiobookService` (async) provide methods for retrieving Spotify audiobook information and chapters.
+
+<Note>
+Both sync and async versions are available. Import `AudiobookService` for sync operations or `AsyncAudiobookService` for async operations.
+</Note>
+
+## Methods
+
+### get
+
+Retrieve detailed information about a single audiobook by its Spotify ID.
+
+```python
+async def get(id: str, market: str | None = None) -> Audiobook
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the audiobook.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for availability. Audiobook availability varies by region.
+</ParamField>
+
+**Returns:** `Audiobook` - The complete audiobook object with metadata including authors, narrators, and chapter information.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    audiobook = await client.audiobooks.get("7iHfbu1YPACw6oZPAFJtqe", market="US")
+    
+    print(f"Audiobook: {audiobook.name}")
+    print(f"Authors: {', '.join([author.name for author in audiobook.authors])}")
+    print(f"Narrators: {', '.join([narrator.name for narrator in audiobook.narrators])}")
+    print(f"Publisher: {audiobook.publisher}")
+    print(f"Total chapters: {audiobook.total_chapters}")
+    print(f"Language: {audiobook.languages[0] if audiobook.languages else 'N/A'}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    audiobook = client.audiobooks.get("7iHfbu1YPACw6oZPAFJtqe", market="US")
+    print(f"Audiobook: {audiobook.name}")
+    print(f"Total chapters: {audiobook.total_chapters}")
+```
+</CodeGroup>
+
+<Tip>
+Always specify a market code when working with audiobooks, as content availability varies significantly by region.
+</Tip>
+
+---
+
+### get_several
+
+Retrieve multiple audiobooks in a single request.
+
+```python
+async def get_several(
+    ids: list[str],
+    market: str | None = None
+) -> list[Audiobook]
+```
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify audiobook IDs. Maximum of 50 IDs per request enforced by Spotify API.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for availability.
+</ParamField>
+
+**Returns:** `list[Audiobook]` - List of audiobook objects.
+
+**Raises:** `ValueError` if `ids` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    audiobook_ids = [
+        "7iHfbu1YPACw6oZPAFJtqe",
+        "3VVFo7JEK3KoLNdJGXSJCH",
+        "18yVqkdbdRvS24c0Ilj2ci"
+    ]
+    
+    audiobooks = await client.audiobooks.get_several(audiobook_ids, market="US")
+    
+    for audiobook in audiobooks:
+        authors = ', '.join([author.name for author in audiobook.authors])
+        print(f"{audiobook.name} by {authors}")
+        print(f"  Chapters: {audiobook.total_chapters}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    audiobook_ids = ["7iHfbu1YPACw6oZPAFJtqe", "3VVFo7JEK3KoLNdJGXSJCH"]
+    audiobooks = client.audiobooks.get_several(audiobook_ids, market="US")
+    
+    for audiobook in audiobooks:
+        print(audiobook.name)
+```
+</CodeGroup>
+
+<Tip>
+Batch requests are more efficient than multiple individual requests. The Spotify API allows up to 50 audiobooks per call.
+</Tip>
+
+---
+
+### get_chapters
+
+Retrieve the chapters from a specific audiobook with pagination support.
+
+```python
+async def get_chapters(
+    id: str,
+    market: str | None = None,
+    limit: int = 20,
+    offset: int = 0
+) -> Page[SimplifiedChapter]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the audiobook.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for availability.
+</ParamField>
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of chapters to return. Valid range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int" default="0">
+  Index of the first chapter to return (for pagination).
+</ParamField>
+
+**Returns:** `Page[SimplifiedChapter]` - Paginated response containing simplified chapter objects.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    chapters = await client.audiobooks.get_chapters(
+        "7iHfbu1YPACw6oZPAFJtqe",
+        market="US",
+        limit=10
+    )
+    
+    print(f"Total chapters: {chapters.total}")
+    for chapter in chapters.items:
+        duration_min = chapter.duration_ms // 60000
+        duration_sec = (chapter.duration_ms % 60000) // 1000
+        print(f"Chapter {chapter.chapter_number}: {chapter.name}")
+        print(f"  Duration: {duration_min}:{duration_sec:02d}")
+        print(f"  Description: {chapter.description[:100]}..." if chapter.description else "")
+    
+    # Pagination
+    if chapters.next:
+        next_chapters = await client.audiobooks.get_chapters(
+            "7iHfbu1YPACw6oZPAFJtqe",
+            market="US",
+            limit=10,
+            offset=10
+        )
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    chapters = client.audiobooks.get_chapters(
+        "7iHfbu1YPACw6oZPAFJtqe",
+        market="US",
+        limit=5
+    )
+    
+    for chapter in chapters.items:
+        print(f"Chapter {chapter.chapter_number}: {chapter.name}")
+```
+</CodeGroup>
+
+<Note>
+Chapter numbers and total counts help with navigation and displaying progress through an audiobook.
+</Note>
+
+## Related Models
+
+- `Audiobook` - Full audiobook object with complete metadata
+- `SimplifiedChapter` - Chapter object with essential information
+- `Page[T]` - Paginated response wrapper
+
+## See Also
+
+- [Chapters Service](/api/services/chapters) - Work with individual chapters
+- [Episodes Service](/api/services/episodes) - Work with podcast episodes
+- [Authentication](/concepts/authentication) - Required scopes and auth flows

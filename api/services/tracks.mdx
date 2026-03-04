@@ -1,0 +1,328 @@
+---
+title: "TrackService"
+description: "Complete API reference for accessing Spotify track information and metadata"
+---
+
+## Overview
+
+The `AsyncTrackService` provides operations for retrieving detailed track information from Spotify's catalog, including metadata, audio features, and artist information.
+
+<Note>
+  This service is available in both async (`AsyncTrackService`) and sync (`TrackService`) variants.
+</Note>
+
+## Get Track
+
+Retrieve detailed information about a single track.
+
+```python
+async def get(self, id: str, market: str | None = None) -> Track
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the track.
+  
+  Example: `"11dFghVXANMlKmJXsNCbNl"`
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code. If provided, track relinking is applied for regional availability.
+  
+  Example: `"US"`, `"GB"`, `"CA"`
+  
+  Track relinking ensures the returned track is playable in the specified market. If the original track isn't available, a relinked version may be returned.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Track" type="Track">
+  Complete track object with all metadata and related information.
+  
+  **Key fields:**
+  - `name` - Track title
+  - `artists` - List of artist objects
+  - `album` - Album object containing the track
+  - `duration_ms` - Track duration in milliseconds
+  - `explicit` - Whether track has explicit content
+  - `popularity` - Track popularity (0-100)
+  - `track_number` - Position on album
+  - `disc_number` - Disc number (for multi-disc albums)
+  - `is_playable` - Whether track is playable in the given market
+  - `preview_url` - URL to 30-second preview (if available)
+  - `external_urls` - External URLs (Spotify web player, etc.)
+  - `uri` - Spotify URI
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Async
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(auth_token="your_token")
+
+# Get track details
+track = await client.tracks.get("11dFghVXANMlKmJXsNCbNl")
+
+print(f"Track: {track.name}")
+print(f"Artists: {', '.join(a.name for a in track.artists)}")
+print(f"Album: {track.album.name}")
+print(f"Duration: {track.duration_ms // 1000} seconds")
+print(f"Popularity: {track.popularity}/100")
+print(f"Explicit: {track.explicit}")
+
+if track.preview_url:
+    print(f"Preview: {track.preview_url}")
+```
+
+```python With Market
+# Get track with market-specific relinking
+track = await client.tracks.get(
+    "11dFghVXANMlKmJXsNCbNl",
+    market="US"
+)
+
+if track.is_playable:
+    print(f"Playable in US: {track.name}")
+else:
+    print("Track not available in US market")
+```
+
+```python Display Full Details
+track = await client.tracks.get("11dFghVXANMlKmJXsNCbNl")
+
+print(f"=== {track.name} ===")
+print(f"\nArtists:")
+for artist in track.artists:
+    print(f"  - {artist.name} (ID: {artist.id})")
+
+print(f"\nAlbum: {track.album.name}")
+print(f"Release Date: {track.album.release_date}")
+print(f"Track {track.track_number} of {track.album.total_tracks}")
+
+if track.disc_number > 1:
+    print(f"Disc {track.disc_number}")
+
+duration_min = track.duration_ms // 60000
+duration_sec = (track.duration_ms % 60000) // 1000
+print(f"\nDuration: {duration_min}:{duration_sec:02d}")
+print(f"Popularity: {track.popularity}/100")
+print(f"Explicit: {'Yes' if track.explicit else 'No'}")
+print(f"\nSpotify URI: {track.uri}")
+print(f"Web Player: {track.external_urls.get('spotify', 'N/A')}")
+```
+
+```python Sync
+from spotify_sdk import SpotifySyncClient
+
+client = SpotifySyncClient(auth_token="your_token")
+
+track = client.tracks.get("11dFghVXANMlKmJXsNCbNl")
+print(f"{track.name} by {track.artists[0].name}")
+```
+</CodeGroup>
+
+---
+
+## Get Several Tracks
+
+Retrieve information for multiple tracks in a single request.
+
+```python
+async def get_several(
+    self,
+    ids: list[str],
+    market: str | None = None,
+) -> list[Track]
+```
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify track IDs. Maximum 20 IDs per request.
+  
+  Example: `["11dFghVXANMlKmJXsNCbNl", "1301WleyT98MSxVHPZCA6M"]`
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code for track relinking.
+</ParamField>
+
+### Returns
+
+<ResponseField name="list[Track]" type="list[Track]">
+  List of track objects in the same order as the requested IDs.
+  
+  Note: If a track ID is invalid or not found, the corresponding position may contain `None` or be omitted depending on the API response.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Get Multiple Tracks
+# Get several tracks at once
+track_ids = [
+    "11dFghVXANMlKmJXsNCbNl",
+    "1301WleyT98MSxVHPZCA6M",
+    "4iV5W9uYEdYUVa79Axb7Rh",
+    "6rqhFgbbKwnb9MLmUQDhG6"
+]
+
+tracks = await client.tracks.get_several(track_ids)
+
+for track in tracks:
+    artists = ", ".join(a.name for a in track.artists)
+    print(f"{track.name} - {artists}")
+```
+
+```python With Market
+# Get tracks for specific market
+tracks = await client.tracks.get_several(
+    [
+        "11dFghVXANMlKmJXsNCbNl",
+        "1301WleyT98MSxVHPZCA6M"
+    ],
+    market="US"
+)
+
+for track in tracks:
+    status = "Playable" if track.is_playable else "Not available"
+    print(f"{track.name}: {status}")
+```
+
+```python Batch Processing
+# Process large list of tracks in batches of 20
+all_track_ids = [...]  # Your list of track IDs
+batch_size = 20
+
+all_tracks = []
+for i in range(0, len(all_track_ids), batch_size):
+    batch = all_track_ids[i:i + batch_size]
+    tracks = await client.tracks.get_several(batch)
+    all_tracks.extend(tracks)
+
+print(f"Retrieved {len(all_tracks)} tracks")
+```
+
+```python Compare Tracks
+# Compare multiple track details
+tracks = await client.tracks.get_several([
+    "11dFghVXANMlKmJXsNCbNl",
+    "1301WleyT98MSxVHPZCA6M"
+])
+
+for track in tracks:
+    duration_min = track.duration_ms // 60000
+    print(f"{track.name}:")
+    print(f"  Duration: {duration_min} min")
+    print(f"  Popularity: {track.popularity}/100")
+    print(f"  Album: {track.album.name}")
+    print()
+```
+</CodeGroup>
+
+<Tip>
+  Use `get_several()` instead of multiple `get()` calls to reduce API requests and improve performance when retrieving multiple tracks.
+</Tip>
+
+## Complete Example
+
+Here's a comprehensive example demonstrating track operations:
+
+```python
+from spotify_sdk import SpotifyClient
+
+async def analyze_playlist_tracks(playlist_id: str):
+    """Analyze tracks from a playlist."""
+    client = SpotifyClient(auth_token="your_token")
+    
+    # Get playlist tracks
+    playlist = await client.playlists.get(playlist_id)
+    
+    # Extract track IDs (max 20 per request)
+    track_ids = [
+        item.track.id 
+        for item in playlist.tracks.items[:20]
+        if item.track
+    ]
+    
+    # Get detailed track information
+    tracks = await client.tracks.get_several(track_ids, market="US")
+    
+    # Analyze the tracks
+    total_duration = sum(t.duration_ms for t in tracks)
+    avg_popularity = sum(t.popularity for t in tracks) / len(tracks)
+    explicit_count = sum(1 for t in tracks if t.explicit)
+    
+    print(f"=== Playlist Analysis ===")
+    print(f"Tracks analyzed: {len(tracks)}")
+    print(f"Total duration: {total_duration // 60000} minutes")
+    print(f"Average popularity: {avg_popularity:.1f}/100")
+    print(f"Explicit tracks: {explicit_count}/{len(tracks)}")
+    
+    # Find most popular track
+    most_popular = max(tracks, key=lambda t: t.popularity)
+    print(f"\nMost popular: {most_popular.name} ({most_popular.popularity}/100)")
+    
+    # List all tracks
+    print("\n=== Track List ===")
+    for i, track in enumerate(tracks, 1):
+        artists = ", ".join(a.name for a in track.artists)
+        duration = f"{track.duration_ms // 60000}:{(track.duration_ms % 60000) // 1000:02d}"
+        print(f"{i}. {track.name} - {artists} ({duration})")
+
+# Run the analysis
+import asyncio
+asyncio.run(analyze_playlist_tracks("37i9dQZF1DXcBWIGoYBM5M"))
+```
+
+## Error Handling
+
+```python
+try:
+    # Attempt to get track with empty ID
+    track = await client.tracks.get("")
+except ValueError as e:
+    print(f"Error: {e}")  # "id cannot be empty"
+
+try:
+    # Get multiple tracks with empty list
+    tracks = await client.tracks.get_several([])
+except ValueError as e:
+    print(f"Error: {e}")  # "ids cannot be empty"
+
+try:
+    # API error for invalid ID
+    track = await client.tracks.get("invalid_id")
+except Exception as e:
+    # Handle 404 or other API errors
+    print(f"API Error: {e}")
+```
+
+## Track Relinking
+
+When you provide a `market` parameter, Spotify may return a relinked track if the original isn't available in that market:
+
+```python
+track = await client.tracks.get(
+    "11dFghVXANMlKmJXsNCbNl",
+    market="JP"
+)
+
+# Check if track was relinked
+if track.linked_from:
+    print(f"Original track: {track.linked_from.id}")
+    print(f"Relinked to: {track.id}")
+
+# Check playability
+if track.is_playable:
+    print("Track is playable in this market")
+else:
+    print("Track not available")
+```
+
+<Note>
+  The Spotify API enforces a maximum of 20 track IDs per `get_several()` request. For larger batches, split your requests into groups of 20.
+</Note>
+
+<Tip>
+  Use the `market` parameter to ensure tracks are playable in your target region. This is especially important for applications serving users in specific countries.
+</Tip>

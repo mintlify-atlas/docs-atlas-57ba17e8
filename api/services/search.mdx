@@ -1,0 +1,315 @@
+---
+title: "SearchService"
+description: "Complete API reference for searching Spotify's catalog of tracks, albums, artists, playlists, shows, episodes, and audiobooks"
+---
+
+## Overview
+
+The `AsyncSearchService` provides powerful search capabilities across Spotify's entire catalog. Search for tracks, albums, artists, playlists, shows, episodes, and audiobooks with flexible query syntax and filtering options.
+
+<Note>
+  This service is available in both async (`AsyncSearchService`) and sync (`SearchService`) variants.
+</Note>
+
+## Search
+
+Search for items across multiple resource types in the Spotify catalog.
+
+```python
+async def search(
+    self,
+    q: str,
+    types: list[SearchType],
+    market: str | None = None,
+    limit: int = 5,
+    offset: int = 0,
+    include_external: IncludeExternal | None = None,
+) -> SearchResult
+```
+
+<ParamField path="q" type="str" required>
+  Search query with keywords and optional filters.
+  
+  **Query syntax:**
+  - Simple keyword: `"remaster track:Doxy artist:Miles Davis"`
+  - Field filters: `album:arrival artist:abba`
+  - Year filters: `year:2015-2020` or `year:2020`
+  - Genre: `genre:"indie rock"`
+  - Tag filters: `tag:hipster`, `tag:new`
+  - Boolean operators: `roadhouse AND blues`
+  - Negation: `roadhouse NOT blues`
+  - Wildcards: `bus*` (matches "bus", "business", "busy")
+</ParamField>
+
+<ParamField path="types" type="list[SearchType]" required>
+  List of resource types to search for.
+  
+  **Valid types:**
+  - `"album"` - Albums
+  - `"artist"` - Artists
+  - `"playlist"` - Playlists
+  - `"track"` - Tracks
+  - `"show"` - Podcasts/Shows
+  - `"episode"` - Podcast episodes
+  - `"audiobook"` - Audiobooks
+  
+  Example: `["track", "artist", "album"]`
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code. If provided, only content available in that market is returned.
+  
+  Example: `"US"`, `"GB"`, `"CA"`
+</ParamField>
+
+<ParamField path="limit" type="int">
+  Maximum number of results to return per type. Default: 5. Range: 0-50.
+</ParamField>
+
+<ParamField path="offset" type="int">
+  Index of the first result to return. Default: 0. Use with `limit` for pagination.
+</ParamField>
+
+<ParamField path="include_external" type="IncludeExternal | None">
+  Whether to include externally hosted audio content.
+  
+  Valid value: `"audio"`
+</ParamField>
+
+### Returns
+
+<ResponseField name="SearchResult" type="SearchResult">
+  Search results grouped by resource type. Each requested type has a corresponding field:
+  - `tracks` - `Page[Track]` if "track" was in types
+  - `albums` - `Page[SimplifiedAlbum]` if "album" was in types
+  - `artists` - `Page[Artist]` if "artist" was in types
+  - `playlists` - `Page[SimplifiedPlaylist]` if "playlist" was in types
+  - `shows` - `Page[SimplifiedShow]` if "show" was in types
+  - `episodes` - `Page[SimplifiedEpisode]` if "episode" was in types
+  - `audiobooks` - `Page[SimplifiedAudiobook]` if "audiobook" was in types
+</ResponseField>
+
+### Examples
+
+<CodeGroup>
+```python Basic Search
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(auth_token="your_token")
+
+# Search for tracks and artists
+results = await client.search.search(
+    q="Bohemian Rhapsody",
+    types=["track", "artist"]
+)
+
+# Access track results
+if results.tracks:
+    for track in results.tracks.items:
+        print(f"Track: {track.name} by {track.artists[0].name}")
+
+# Access artist results
+if results.artists:
+    for artist in results.artists.items:
+        print(f"Artist: {artist.name}")
+```
+
+```python Advanced Query
+# Search with field filters
+results = await client.search.search(
+    q="album:arrival artist:abba",
+    types=["track"],
+    limit=20
+)
+
+for track in results.tracks.items:
+    print(f"{track.name} - {track.album.name}")
+```
+
+```python Year Filter
+# Search for tracks from a specific year range
+results = await client.search.search(
+    q="year:2015-2020 genre:rock",
+    types=["track", "album"],
+    market="US",
+    limit=10
+)
+```
+
+```python Multi-Type Search
+# Search across all content types
+results = await client.search.search(
+    q="jazz",
+    types=["track", "album", "artist", "playlist"],
+    limit=10
+)
+
+print(f"Found {results.tracks.total} tracks")
+print(f"Found {results.albums.total} albums")
+print(f"Found {results.artists.total} artists")
+print(f"Found {results.playlists.total} playlists")
+```
+
+```python Pagination
+# Get first page
+results = await client.search.search(
+    q="indie rock",
+    types=["track"],
+    limit=50,
+    offset=0
+)
+
+# Get second page
+results_page2 = await client.search.search(
+    q="indie rock",
+    types=["track"],
+    limit=50,
+    offset=50
+)
+```
+
+```python Sync Version
+from spotify_sdk import SpotifySyncClient
+
+client = SpotifySyncClient(auth_token="your_token")
+
+results = client.search.search(
+    q="Miles Davis",
+    types=["artist", "album"]
+)
+```
+</CodeGroup>
+
+## Search Query Syntax
+
+The search query (`q` parameter) supports powerful filtering and operators:
+
+### Field Filters
+
+Filter by specific fields:
+
+```python
+# Search for tracks with specific album and artist
+q = "album:arrival artist:abba"
+
+# Search for remaster tracks
+q = "remaster track:Doxy artist:Miles Davis"
+```
+
+### Year Filters
+
+Filter by release year:
+
+```python
+# Specific year
+q = "year:2020"
+
+# Year range
+q = "year:2015-2020"
+
+# Before year
+q = "year:0-2000"
+```
+
+### Genre Filter
+
+```python
+q = 'genre:"indie rock"'
+q = 'genre:jazz'
+```
+
+### Tag Filters
+
+```python
+# Hipster tag
+q = "tag:hipster"
+
+# New releases
+q = "tag:new"
+```
+
+### Boolean Operators
+
+```python
+# AND operator (both terms required)
+q = "roadhouse AND blues"
+
+# OR operator (either term)
+q = "roadhouse OR blues"
+
+# NOT operator (exclude term)
+q = "roadhouse NOT blues"
+```
+
+### Wildcards
+
+```python
+# Matches bus, business, busy, etc.
+q = "bus*"
+```
+
+### Complex Queries
+
+Combine multiple filters:
+
+```python
+results = await client.search.search(
+    q='year:2015-2020 genre:"indie rock" tag:new',
+    types=["track", "album"],
+    market="US"
+)
+```
+
+## Search Types Reference
+
+<ResponseField name="SearchType" type="Literal">
+  Valid search type values:
+  
+  | Type | Description |
+  |------|-------------|
+  | `"album"` | Search for albums |
+  | `"artist"` | Search for artists |
+  | `"playlist"` | Search for playlists |
+  | `"track"` | Search for tracks |
+  | `"show"` | Search for podcasts/shows |
+  | `"episode"` | Search for podcast episodes |
+  | `"audiobook"` | Search for audiobooks |
+</ResponseField>
+
+## Error Handling
+
+The search method validates inputs and raises `ValueError` for:
+
+```python
+try:
+    results = await client.search.search(
+        q="",  # Empty query
+        types=["track"]
+    )
+except ValueError as e:
+    print(f"Error: {e}")  # "q cannot be empty"
+
+try:
+    results = await client.search.search(
+        q="test",
+        types=[]  # Empty types list
+    )
+except ValueError as e:
+    print(f"Error: {e}")  # "types cannot be empty"
+
+try:
+    results = await client.search.search(
+        q="test",
+        types=["invalid_type"]  # Invalid type
+    )
+except ValueError as e:
+    print(f"Error: {e}")  # Lists valid types
+```
+
+<Tip>
+  When searching for multiple types, use specific field filters in your query to get more relevant results. For example, `"artist:Queen track:Bohemian"` is better than just `"Queen Bohemian"`.
+</Tip>
+
+<Note>
+  Search results are paginated with a maximum limit of 50 per type. Use the `offset` parameter to retrieve additional results.
+</Note>

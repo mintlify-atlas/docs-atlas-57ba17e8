@@ -1,0 +1,367 @@
+---
+title: Playlist Models
+description: Pydantic models for Spotify playlist objects
+---
+
+# Playlist Models
+
+The playlist models represent playlist data from the Spotify API. Playlists contain tracks with metadata about who added them and when.
+
+## PublicUser
+
+Public user profile information embedded in playlist objects.
+
+### Fields
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this user. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint for this user
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify user ID
+</ResponseField>
+
+<ResponseField name="type" type="Literal['user']" required>
+  The object type, always "user"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the user
+</ResponseField>
+
+<ResponseField name="display_name" type="str | None">
+  The user's display name, or `None` if not available
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "external_urls": {
+    "spotify": "https://open.spotify.com/user/user123"
+  },
+  "href": "https://api.spotify.com/v1/users/user123",
+  "id": "user123",
+  "type": "user",
+  "uri": "spotify:user:user123",
+  "display_name": "Example User"
+}
+```
+
+## PlaylistTracksRef
+
+Reference to playlist tracks with total count (used in `SimplifiedPlaylist`).
+
+### Fields
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint for the playlist tracks
+</ResponseField>
+
+<ResponseField name="total" type="int" required>
+  The total number of tracks in the playlist
+</ResponseField>
+
+## PlaylistTrack
+
+Track item in a playlist with metadata about when and who added it.
+
+### Fields
+
+<ResponseField name="added_at" type="datetime | None">
+  The timestamp when the track was added to the playlist
+</ResponseField>
+
+<ResponseField name="added_by" type="PublicUser | None">
+  The user who added the track to the playlist
+</ResponseField>
+
+<ResponseField name="is_local" type="bool" required>
+  Whether the track is a local file
+</ResponseField>
+
+<ResponseField name="track" type="Track | None" required>
+  The track object. See [Track Models](/api/models/track). Can be `None` if the track is no longer available.
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "added_at": "2023-11-15T10:30:00Z",
+  "added_by": {
+    "id": "user123",
+    "type": "user",
+    "uri": "spotify:user:user123",
+    "display_name": "Example User"
+  },
+  "is_local": false,
+  "track": {
+    "id": "track123",
+    "name": "Example Track",
+    "artists": [{"name": "Example Artist"}],
+    "duration_ms": 234000
+  }
+}
+```
+
+## SimplifiedPlaylist
+
+Basic playlist information embedded in other objects.
+
+### Fields
+
+<ResponseField name="collaborative" type="bool" required>
+  Whether the playlist is collaborative
+</ResponseField>
+
+<ResponseField name="description" type="str | None" required>
+  The playlist description, or `None` if not provided
+</ResponseField>
+
+<ResponseField name="external_urls" type="ExternalUrls" required>
+  External URLs for this playlist. See [Common Models](/api/models/common#externalurls).
+</ResponseField>
+
+<ResponseField name="href" type="str" required>
+  A link to the Web API endpoint providing full details
+</ResponseField>
+
+<ResponseField name="id" type="str" required>
+  The Spotify ID for the playlist
+</ResponseField>
+
+<ResponseField name="images" type="list[Image]" required>
+  Cover images for the playlist. See [Common Models](/api/models/common#image).
+</ResponseField>
+
+<ResponseField name="name" type="str" required>
+  The name of the playlist
+</ResponseField>
+
+<ResponseField name="owner" type="PublicUser" required>
+  The user who owns the playlist
+</ResponseField>
+
+<ResponseField name="public" type="bool | None" required>
+  Whether the playlist is public (`true`), private (`false`), or `None` if unknown
+</ResponseField>
+
+<ResponseField name="snapshot_id" type="str" required>
+  The version identifier for the current playlist. Changes when the playlist is modified.
+</ResponseField>
+
+<ResponseField name="tracks" type="PlaylistTracksRef" required>
+  Reference to the playlist tracks with total count
+</ResponseField>
+
+<ResponseField name="type" type="Literal['playlist']" required>
+  The object type, always "playlist"
+</ResponseField>
+
+<ResponseField name="uri" type="str" required>
+  The Spotify URI for the playlist
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "collaborative": false,
+  "description": "My favorite tracks",
+  "external_urls": {
+    "spotify": "https://open.spotify.com/playlist/playlist123"
+  },
+  "href": "https://api.spotify.com/v1/playlists/playlist123",
+  "id": "playlist123",
+  "images": [
+    {
+      "url": "https://i.scdn.co/image/playlist123",
+      "height": 640,
+      "width": 640
+    }
+  ],
+  "name": "My Playlist",
+  "owner": {
+    "id": "user123",
+    "display_name": "Example User",
+    "type": "user",
+    "uri": "spotify:user:user123"
+  },
+  "public": true,
+  "snapshot_id": "AAAABpvHd1234567890",
+  "tracks": {
+    "href": "https://api.spotify.com/v1/playlists/playlist123/tracks",
+    "total": 42
+  },
+  "type": "playlist",
+  "uri": "spotify:playlist:playlist123"
+}
+```
+
+## Playlist
+
+Complete playlist with full track details. Extends `SimplifiedPlaylist`.
+
+### Modified Fields
+
+<ResponseField name="tracks" type="Page[PlaylistTrack]" required>
+  Paginated list of playlist tracks with metadata. See [Common Models](/api/models/common#page).
+</ResponseField>
+
+### Example JSON
+
+```json
+{
+  "id": "playlist123",
+  "name": "My Playlist",
+  "description": "My favorite tracks",
+  "public": true,
+  "collaborative": false,
+  "owner": {
+    "id": "user123",
+    "display_name": "Example User"
+  },
+  "tracks": {
+    "href": "https://api.spotify.com/v1/playlists/playlist123/tracks",
+    "items": [
+      {
+        "added_at": "2023-11-15T10:30:00Z",
+        "added_by": {
+          "id": "user123",
+          "display_name": "Example User"
+        },
+        "is_local": false,
+        "track": {
+          "id": "track123",
+          "name": "Example Track",
+          "artists": [{"name": "Example Artist"}],
+          "duration_ms": 234000
+        }
+      }
+    ],
+    "limit": 100,
+    "next": null,
+    "offset": 0,
+    "previous": null,
+    "total": 42
+  },
+  "snapshot_id": "AAAABpvHd1234567890"
+}
+```
+
+## Model Relationships
+
+<Note>
+  **Playlist Model Hierarchy**
+  
+  - `SimplifiedPlaylist` contains basic playlist metadata and a `PlaylistTracksRef` (just the count)
+  - `Playlist` extends `SimplifiedPlaylist` and replaces tracks with a full `Page[PlaylistTrack]`
+  - `PlaylistTrack` wraps a `Track` with metadata about who added it and when
+  - `PublicUser` provides user information for the playlist owner and track adders
+</Note>
+
+## Usage Example
+
+```python
+from spotify_sdk.models.playlist import Playlist, PlaylistTrack
+from datetime import datetime
+
+# Parse a playlist from the API response
+playlist = Playlist(**api_response)
+
+print(f"Playlist: {playlist.name}")
+print(f"Owner: {playlist.owner.display_name}")
+print(f"Total tracks: {playlist.tracks.total}")
+print(f"Public: {'Yes' if playlist.public else 'No'}")
+print(f"Collaborative: {'Yes' if playlist.collaborative else 'No'}")
+
+# Iterate through tracks
+for item in playlist.tracks.items:
+    if item.track:  # Track might be None if unavailable
+        track = item.track
+        print(f"\n{track.name} - {track.artists[0].name}")
+        
+        if item.added_at:
+            print(f"  Added: {item.added_at.strftime('%Y-%m-%d')}")
+        
+        if item.added_by:
+            print(f"  Added by: {item.added_by.display_name}")
+
+# Calculate total duration
+total_ms = sum(
+    item.track.duration_ms 
+    for item in playlist.tracks.items 
+    if item.track
+)
+total_hours = total_ms / (1000 * 60 * 60)
+print(f"\nTotal duration: {total_hours:.1f} hours")
+```
+
+## Common Use Cases
+
+<Expandable title="Understanding Playlist Snapshots">
+  The `snapshot_id` is a version identifier that changes whenever the playlist is modified:
+  
+  - Adding or removing tracks changes the snapshot
+  - Reordering tracks changes the snapshot
+  - Changing playlist details (name, description) changes the snapshot
+  
+  Use snapshot IDs to detect if a playlist has been modified:
+  
+  ```python
+  # Store the snapshot ID
+  old_snapshot = playlist.snapshot_id
+  
+  # Later, fetch the playlist again
+  new_playlist = Playlist(**api_response)
+  
+  if new_playlist.snapshot_id != old_snapshot:
+      print("Playlist has been modified")
+  ```
+</Expandable>
+
+<Expandable title="Handling Unavailable Tracks">
+  Tracks in a playlist can become unavailable (removed from Spotify, region restrictions, etc.). In this case, `track` will be `None`:
+  
+  ```python
+  available_tracks = []
+  unavailable_count = 0
+  
+  for item in playlist.tracks.items:
+      if item.track:
+          available_tracks.append(item.track)
+      else:
+          unavailable_count += 1
+  
+  if unavailable_count > 0:
+      print(f"Warning: {unavailable_count} tracks unavailable")
+  ```
+</Expandable>
+
+<Expandable title="Collaborative Playlists">
+  Collaborative playlists allow multiple users to add and remove tracks:
+  
+  - `collaborative = True`: Multiple users can edit
+  - `collaborative = False`: Only the owner can edit
+  
+  Track who added what in collaborative playlists:
+  
+  ```python
+  from collections import Counter
+  
+  contributors = Counter(
+      item.added_by.display_name 
+      for item in playlist.tracks.items 
+      if item.added_by and item.added_by.display_name
+  )
+  
+  print("Top contributors:")
+  for user, count in contributors.most_common(5):
+      print(f"  {user}: {count} tracks")
+  ```
+</Expandable>

@@ -1,0 +1,509 @@
+---
+title: Authentication
+description: Learn how to authenticate with the Spotify API using access tokens, client credentials, or authorization code flows
+---
+
+The Spotify SDK for Python supports three authentication methods depending on your use case. Each method has different capabilities and requirements.
+
+## Authentication Methods
+
+The SDK supports:
+
+- **Access Token**: Use a pre-obtained token directly
+- **Client Credentials**: Automated token management for app-only access
+- **Authorization Code**: User authorization with refresh token support
+
+### When to Use Each Method
+
+<CardGroup cols={3}>
+  <Card title="Access Token" icon="key">
+    Best for:
+    - Testing and development
+    - Short-lived scripts
+    - When you already have a valid token
+  </Card>
+  
+  <Card title="Client Credentials" icon="robot">
+    Best for:
+    - Server-to-server applications
+    - Public data access
+    - No user-specific data needed
+  </Card>
+  
+  <Card title="Authorization Code" icon="user-lock">
+    Best for:
+    - User-facing applications
+    - Accessing user libraries
+    - Long-running sessions
+  </Card>
+</CardGroup>
+
+## Access Token Authentication
+
+The simplest method is to provide an access token directly. The SDK uses this token for all API requests without any automatic refresh.
+
+<CodeGroup>
+```python Sync
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+# Use the client
+album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+print(f"{album.name} by {album.artists[0].name}")
+
+client.close()
+```
+
+```python Async
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    client = AsyncSpotifyClient(access_token="your-access-token")
+    
+    album = await client.albums.get("5K79FLRUCSysQnVESLcTdb")
+    print(f"{album.name} by {album.artists[0].name}")
+    
+    await client.close()
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+<Warning>
+Access tokens expire after 1 hour. The SDK does not automatically refresh them when using this method.
+</Warning>
+
+## Client Credentials Flow
+
+Client credentials flow automatically fetches and refreshes tokens using your app's client ID and secret. This is ideal for server applications that don't need user-specific data.
+
+<Steps>
+  <Step title="Get Credentials">
+    Register your application at [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) to obtain your client ID and secret.
+  </Step>
+  
+  <Step title="Initialize Client">
+    Create a client using the `from_client_credentials` factory method or pass credentials to the constructor.
+  </Step>
+  
+  <Step title="Use the Client">
+    The SDK automatically fetches and caches access tokens. Tokens are refreshed when they expire.
+  </Step>
+</Steps>
+
+### Using the Factory Method
+
+<CodeGroup>
+```python Sync
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient.from_client_credentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+
+# Token is automatically fetched and cached
+album = client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+print(album.name)
+
+client.close()
+```
+
+```python Async
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    client = AsyncSpotifyClient.from_client_credentials(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+    )
+    
+    album = await client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+    print(album.name)
+    
+    await client.close()
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+### Using Environment Variables
+
+You can store credentials in environment variables to avoid hardcoding them:
+
+<Tabs>
+  <Tab title="Environment Variables">
+    ```bash
+    export SPOTIFY_SDK_CLIENT_ID="your-client-id"
+    export SPOTIFY_SDK_CLIENT_SECRET="your-client-secret"
+    ```
+  </Tab>
+  
+  <Tab title="Python Code">
+    ```python
+    from spotify_sdk import SpotifyClient
+    
+    # Reads from SPOTIFY_SDK_CLIENT_ID and SPOTIFY_SDK_CLIENT_SECRET
+    client = SpotifyClient.from_client_credentials()
+    ```
+  </Tab>
+</Tabs>
+
+### Using the Constructor
+
+<CodeGroup>
+```python Sync
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+```
+
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+```
+</CodeGroup>
+
+## Authorization Code Flow
+
+Authorization code flow is used for applications that need access to user-specific data like saved tracks, playlists, or playback control. This flow requires user authorization and provides refresh tokens for long-term access.
+
+### Basic Setup
+
+<CodeGroup>
+```python Sync
+from spotify_sdk import SpotifyClient
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private", "user-library-read"],
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+
+# Local helper: opens browser and captures callback automatically
+auth.authorize_local()
+
+client = SpotifyClient(auth_provider=auth)
+
+# Access user data
+saved_albums = client.albums.get_saved(limit=10)
+for item in saved_albums.items:
+    print(f"{item.album.name} by {item.album.artists[0].name}")
+
+client.close()
+```
+
+```python Async
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+from spotify_sdk.auth import AsyncAuthorizationCode, FileTokenCache
+
+async def main():
+    auth = AsyncAuthorizationCode(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+        redirect_uri="http://127.0.0.1:8080/callback",
+        scope=["user-read-private", "user-library-read"],
+        token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+    )
+    
+    # Open browser and wait for authorization
+    from spotify_sdk.auth import async_authorize_local
+    await async_authorize_local(auth)
+    
+    client = AsyncSpotifyClient(auth_provider=auth)
+    
+    saved_albums = await client.albums.get_saved(limit=10)
+    for item in saved_albums.items:
+        print(f"{item.album.name} by {item.album.artists[0].name}")
+    
+    await client.close()
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+### Authorization Scopes
+
+Specify which permissions your application needs:
+
+```python
+scope = [
+    "user-read-private",
+    "user-read-email",
+    "user-library-read",
+    "user-library-modify",
+    "playlist-read-private",
+    "playlist-modify-public",
+]
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=scope,
+)
+```
+
+<Info>
+See the [Spotify Authorization Scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes) documentation for a full list of available scopes.
+</Info>
+
+### Local Authorization Helper
+
+The `authorize_local` helper automatically:
+1. Opens the authorization URL in your browser
+2. Starts a local HTTP server to receive the callback
+3. Exchanges the authorization code for tokens
+4. Saves tokens to the cache
+
+```python
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private"],
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+
+# Opens browser and handles the callback
+token_info = auth.authorize_local(
+    timeout=300.0,  # Wait up to 5 minutes
+    show_dialog=False,  # Force approval screen
+)
+
+print(f"Access token: {token_info.access_token}")
+print(f"Expires at: {token_info.expires_at}")
+print(f"Refresh token: {token_info.refresh_token}")
+```
+
+### Manual Authorization Flow
+
+For web applications or custom flows, handle the authorization manually:
+
+```python
+from spotify_sdk.auth import AuthorizationCode
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="https://your-app.com/callback",
+    scope=["user-read-private"],
+)
+
+# 1. Get authorization URL
+auth_url = auth.get_authorization_url(
+    state="random-state-string",
+    show_dialog=True,
+)
+print(f"Visit: {auth_url}")
+
+# 2. User visits URL and authorizes
+# 3. Parse callback URL
+callback_url = "https://your-app.com/callback?code=ABC123&state=random-state-string"
+code = auth.parse_response_url(
+    callback_url,
+    expected_state="random-state-string",
+)
+
+# 4. Exchange code for tokens
+token_info = auth.exchange_code(code)
+print(f"Access token: {token_info.access_token}")
+```
+
+## Token Caching
+
+Token caching prevents unnecessary token requests and persists tokens between sessions.
+
+### File-Based Cache
+
+Store tokens in a JSON file:
+
+```python
+from spotify_sdk.auth import ClientCredentials, FileTokenCache
+
+auth = ClientCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+```
+
+The file is created automatically with secure permissions (mode 0600) and contains:
+
+```json
+{
+  "access_token": "BQD...",
+  "expires_at": 1709567890.123,
+  "refresh_token": "AQD...",
+  "scope": "user-read-private user-library-read"
+}
+```
+
+### In-Memory Cache
+
+The default cache stores tokens in memory only:
+
+```python
+from spotify_sdk.auth import ClientCredentials, InMemoryTokenCache
+
+auth = ClientCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    token_cache=InMemoryTokenCache(),  # Default if not specified
+)
+```
+
+<Warning>
+In-memory cache is lost when the process exits. Use `FileTokenCache` for persistent storage.
+</Warning>
+
+### Custom Token Cache
+
+Implement the `TokenCache` protocol for custom storage:
+
+```python
+from spotify_sdk.auth import TokenInfo, TokenCache
+import redis
+import json
+import time
+
+class RedisTokenCache:
+    """Redis-backed token cache."""
+    
+    def __init__(self, redis_client: redis.Redis, key: str = "spotify_token"):
+        self._redis = redis_client
+        self._key = key
+    
+    def get(self) -> TokenInfo | None:
+        """Get cached token from Redis."""
+        data = self._redis.get(self._key)
+        if not data:
+            return None
+        
+        payload = json.loads(data)
+        return TokenInfo(
+            access_token=payload["access_token"],
+            expires_at=payload["expires_at"],
+            refresh_token=payload.get("refresh_token"),
+            scope=payload.get("scope"),
+        )
+    
+    def set(self, token: TokenInfo) -> None:
+        """Save token to Redis."""
+        payload = {
+            "access_token": token.access_token,
+            "expires_at": token.expires_at,
+            "refresh_token": token.refresh_token,
+            "scope": token.scope,
+        }
+        ttl = max(0, int(token.expires_at - time.time()))
+        self._redis.setex(self._key, ttl, json.dumps(payload))
+```
+
+## Token Refresh
+
+The SDK automatically refreshes tokens before they expire:
+
+```python
+from spotify_sdk.auth import ClientCredentials
+
+auth = ClientCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    skew_seconds=30,  # Refresh 30 seconds before expiry (default)
+)
+
+# First call: fetches new token
+token1 = auth.get_access_token()
+
+# Subsequent calls: returns cached token
+token2 = auth.get_access_token()  # Same token
+
+# After expiry: automatically refreshes
+time.sleep(3600)  # Wait 1 hour
+token3 = auth.get_access_token()  # New token
+```
+
+### Refresh Configuration
+
+<ParamField path="skew_seconds" type="int" default="30">
+  Number of seconds before expiry to refresh the token. Set to 0 to refresh only when expired.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  HTTP timeout for token requests in seconds.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="3">
+  Maximum retry attempts for failed token requests.
+</ParamField>
+
+```python
+auth = ClientCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    skew_seconds=60,  # Refresh 1 minute before expiry
+    timeout=15.0,  # 15 second timeout
+    max_retries=5,  # Retry up to 5 times
+)
+```
+
+## Resource Cleanup
+
+Always close auth providers when done to release HTTP connections:
+
+<CodeGroup>
+```python Sync
+from spotify_sdk.auth import ClientCredentials
+
+auth = ClientCredentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+)
+
+try:
+    token = auth.get_access_token()
+    print(token)
+finally:
+    auth.close()
+```
+
+```python Async
+import asyncio
+from spotify_sdk.auth import AsyncClientCredentials
+
+async def main():
+    auth = AsyncClientCredentials(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+    )
+    
+    try:
+        token = await auth.get_access_token()
+        print(token)
+    finally:
+        await auth.close()
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+<Note>
+When using auth providers with `SpotifyClient` or `AsyncSpotifyClient`, calling `client.close()` also closes the auth provider.
+</Note>

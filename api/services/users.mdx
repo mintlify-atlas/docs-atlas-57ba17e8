@@ -1,0 +1,656 @@
+---
+title: "UserService"
+description: "Complete API reference for managing Spotify user profiles, follows, and personalized content"
+---
+
+## Overview
+
+The `AsyncUserService` provides operations for retrieving user profile information, managing follows (artists and users), accessing top artists and tracks, and working with playlist followers.
+
+<Note>
+  This service is available in both async (`AsyncUserService`) and sync (`UserService`) variants.
+</Note>
+
+## Get Current User Profile
+
+Retrieve detailed profile information about the currently authenticated user.
+
+```python
+async def get_current_profile(self) -> CurrentUser
+```
+
+### Returns
+
+<ResponseField name="CurrentUser" type="CurrentUser">
+  Complete user profile with account details.
+  
+  **Key fields:**
+  - `id` - User's Spotify ID
+  - `display_name` - User's display name
+  - `email` - User's email address (requires `user-read-email` scope)
+  - `country` - User's country
+  - `product` - Subscription level ("premium", "free", etc.)
+  - `followers` - Follower count
+  - `images` - Profile images
+  - `external_urls` - Links to Spotify profile
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Async
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(auth_token="your_token")
+
+user = await client.users.get_current_profile()
+
+print(f"User: {user.display_name}")
+print(f"ID: {user.id}")
+print(f"Email: {user.email}")
+print(f"Country: {user.country}")
+print(f"Subscription: {user.product}")
+print(f"Followers: {user.followers.total}")
+```
+
+```python Sync
+from spotify_sdk import SpotifySyncClient
+
+client = SpotifySyncClient(auth_token="your_token")
+
+user = client.users.get_current_profile()
+print(f"{user.display_name} ({user.product})")
+```
+</CodeGroup>
+
+---
+
+## Get Top Artists
+
+Retrieve the current user's top artists based on listening history.
+
+```python
+async def get_top_artists(
+    self,
+    time_range: TimeRange | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> Page[Artist]
+```
+
+<ParamField path="time_range" type="TimeRange | None">
+  Time period over which affinities are computed.
+  
+  **Valid values:**
+  - `"long_term"` - Calculated from several years of data
+  - `"medium_term"` - Approximately last 6 months (default)
+  - `"short_term"` - Approximately last 4 weeks
+</ParamField>
+
+<ParamField path="limit" type="int | None">
+  Maximum number of artists to return. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int | None">
+  Index of the first artist to return. Default: 0.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[Artist]" type="Page[Artist]">
+  Paginated list of the user's top artists, ordered by affinity.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Basic Usage
+# Get top artists (default: medium_term)
+top_artists = await client.users.get_top_artists(limit=10)
+
+print("Your top artists:")
+for i, artist in enumerate(top_artists.items, 1):
+    print(f"{i}. {artist.name}")
+    print(f"   Genres: {', '.join(artist.genres[:3])}")
+    print(f"   Popularity: {artist.popularity}/100")
+```
+
+```python Compare Time Ranges
+# Compare top artists across different time periods
+short_term = await client.users.get_top_artists(
+    time_range="short_term",
+    limit=5
+)
+
+long_term = await client.users.get_top_artists(
+    time_range="long_term",
+    limit=5
+)
+
+print("Last month:")
+for artist in short_term.items:
+    print(f"  - {artist.name}")
+
+print("\nAll time:")
+for artist in long_term.items:
+    print(f"  - {artist.name}")
+```
+
+```python Pagination
+# Get all top artists
+all_artists = []
+offset = 0
+limit = 50
+
+while True:
+    page = await client.users.get_top_artists(
+        time_range="medium_term",
+        limit=limit,
+        offset=offset
+    )
+    
+    all_artists.extend(page.items)
+    
+    if page.next is None:
+        break
+    
+    offset += limit
+
+print(f"Total top artists: {len(all_artists)}")
+```
+</CodeGroup>
+
+---
+
+## Get Top Tracks
+
+Retrieve the current user's top tracks based on listening history.
+
+```python
+async def get_top_tracks(
+    self,
+    time_range: TimeRange | None = None,
+    limit: int | None = None,
+    offset: int | None = None,
+) -> Page[Track]
+```
+
+<ParamField path="time_range" type="TimeRange | None">
+  Time period for affinity calculation.
+  
+  Values: `"long_term"`, `"medium_term"` (default), `"short_term"`
+</ParamField>
+
+<ParamField path="limit" type="int | None">
+  Maximum tracks to return. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int | None">
+  Index of first track. Default: 0.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[Track]" type="Page[Track]">
+  Paginated list of the user's top tracks, ordered by affinity.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Get Top Tracks
+top_tracks = await client.users.get_top_tracks(
+    time_range="short_term",
+    limit=20
+)
+
+print("Your top tracks this month:")
+for i, track in enumerate(top_tracks.items, 1):
+    artists = ", ".join(a.name for a in track.artists)
+    print(f"{i}. {track.name} - {artists}")
+    print(f"   Album: {track.album.name}")
+```
+
+```python Create Playlist from Top Tracks
+# Get top tracks and create a playlist
+tracks = await client.users.get_top_tracks(
+    time_range="long_term",
+    limit=50
+)
+
+user = await client.users.get_current_profile()
+
+playlist = await client.playlists.create(
+    user_id=user.id,
+    name="My All-Time Favorites",
+    description="Auto-generated from my top tracks"
+)
+
+track_uris = [track.uri for track in tracks.items]
+await client.playlists.add_items(
+    id=playlist.id,
+    uris=track_uris
+)
+
+print(f"Created playlist: {playlist.name}")
+```
+</CodeGroup>
+
+---
+
+## Follow Playlist
+
+Add the current user as a follower of a playlist.
+
+```python
+async def follow_playlist(
+    self,
+    id: str,
+    public: bool | None = None
+) -> None
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the playlist to follow.
+</ParamField>
+
+<ParamField path="public" type="bool | None">
+  If `True`, the playlist is included in user's public playlists. If `False`, it remains private.
+</ParamField>
+
+### Example
+
+```python
+# Follow a playlist publicly
+await client.users.follow_playlist(
+    "37i9dQZF1DXcBWIGoYBM5M",
+    public=True
+)
+
+# Follow privately
+await client.users.follow_playlist(
+    "37i9dQZF1DXcBWIGoYBM5M",
+    public=False
+)
+```
+
+---
+
+## Unfollow Playlist
+
+Remove the current user as a follower of a playlist.
+
+```python
+async def unfollow_playlist(self, id: str) -> None
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the playlist to unfollow.
+</ParamField>
+
+### Example
+
+```python
+# Unfollow a playlist
+await client.users.unfollow_playlist("37i9dQZF1DXcBWIGoYBM5M")
+```
+
+---
+
+## Get Followed Artists
+
+Retrieve the current user's followed artists (cursor-based pagination).
+
+```python
+async def get_followed_artists(
+    self,
+    after: str | None = None,
+    limit: int | None = None
+) -> CursorPage[Artist]
+```
+
+<ParamField path="after" type="str | None">
+  The last artist ID from the previous request (for cursor pagination).
+</ParamField>
+
+<ParamField path="limit" type="int | None">
+  Maximum number of artists to return. Default: 20. Range: 1-50.
+</ParamField>
+
+### Returns
+
+<ResponseField name="CursorPage[Artist]" type="CursorPage[Artist]">
+  Cursor-paginated list of followed artists with `cursors.after` for pagination.
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Get Followed Artists
+followed = await client.users.get_followed_artists(limit=50)
+
+print(f"Following {followed.total} artists:")
+for artist in followed.items:
+    print(f"  - {artist.name}")
+    print(f"    Genres: {', '.join(artist.genres[:2])}")
+```
+
+```python Cursor Pagination
+# Get all followed artists using cursor pagination
+all_artists = []
+after = None
+
+while True:
+    page = await client.users.get_followed_artists(
+        after=after,
+        limit=50
+    )
+    
+    all_artists.extend(page.items)
+    
+    # Check if there's a next page
+    if page.cursors and page.cursors.after:
+        after = page.cursors.after
+    else:
+        break
+
+print(f"Total followed artists: {len(all_artists)}")
+```
+</CodeGroup>
+
+---
+
+## Follow Artists or Users
+
+Add artists or users to the current user's follows.
+
+```python
+async def follow_artists_or_users(
+    self,
+    type_: FollowType,
+    ids: list[str]
+) -> None
+```
+
+<ParamField path="type_" type="FollowType" required>
+  Type of resource to follow.
+  
+  **Valid values:**
+  - `"artist"` - Follow artists
+  - `"user"` - Follow users
+</ParamField>
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify IDs to follow.
+</ParamField>
+
+### Example
+
+<CodeGroup>
+```python Follow Artists
+# Follow multiple artists
+await client.users.follow_artists_or_users(
+    type_="artist",
+    ids=[
+        "0OdUWJ0sBjDrqHygGUXeCF",  # Band of Horses
+        "3TVXtAsR1Inumwj472S9r4"   # Drake
+    ]
+)
+```
+
+```python Follow Users
+# Follow other Spotify users
+await client.users.follow_artists_or_users(
+    type_="user",
+    ids=["user_id_1", "user_id_2"]
+)
+```
+</CodeGroup>
+
+---
+
+## Unfollow Artists or Users
+
+Remove artists or users from the current user's follows.
+
+```python
+async def unfollow_artists_or_users(
+    self,
+    type_: FollowType,
+    ids: list[str]
+) -> None
+```
+
+<ParamField path="type_" type="FollowType" required>
+  Type of resource: `"artist"` or `"user"`
+</ParamField>
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify IDs to unfollow.
+</ParamField>
+
+### Example
+
+```python
+# Unfollow artists
+await client.users.unfollow_artists_or_users(
+    type_="artist",
+    ids=["0OdUWJ0sBjDrqHygGUXeCF"]
+)
+```
+
+---
+
+## Check Follows Artists or Users
+
+Check if the current user follows specific artists or users.
+
+```python
+async def check_follows_artists_or_users(
+    self,
+    type_: FollowType,
+    ids: list[str]
+) -> list[bool]
+```
+
+<ParamField path="type_" type="FollowType" required>
+  Type of resource: `"artist"` or `"user"`
+</ParamField>
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify IDs to check.
+</ParamField>
+
+### Returns
+
+<ResponseField name="list[bool]" type="list[bool]">
+  List of booleans aligned to input IDs indicating follow status.
+</ResponseField>
+
+### Example
+
+```python
+artist_ids = [
+    "0OdUWJ0sBjDrqHygGUXeCF",
+    "3TVXtAsR1Inumwj472S9r4"
+]
+
+following = await client.users.check_follows_artists_or_users(
+    type_="artist",
+    ids=artist_ids
+)
+
+for artist_id, is_following in zip(artist_ids, following):
+    status = "Following" if is_following else "Not following"
+    print(f"{artist_id}: {status}")
+```
+
+---
+
+## Check if Follows Playlist
+
+Check if specific users follow a playlist.
+
+```python
+async def check_if_follows_playlist(
+    self,
+    id: str,
+    user_ids: list[str]
+) -> list[bool]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID of the playlist.
+</ParamField>
+
+<ParamField path="user_ids" type="list[str]" required>
+  List of Spotify user IDs to check.
+</ParamField>
+
+### Returns
+
+<ResponseField name="list[bool]" type="list[bool]">
+  List of booleans indicating whether each user follows the playlist.
+</ResponseField>
+
+### Example
+
+```python
+# Check if users follow a playlist
+user_ids = ["user1_id", "user2_id", "user3_id"]
+
+following = await client.users.check_if_follows_playlist(
+    id="37i9dQZF1DXcBWIGoYBM5M",
+    user_ids=user_ids
+)
+
+for user_id, follows in zip(user_ids, following):
+    status = "follows" if follows else "doesn't follow"
+    print(f"{user_id} {status} the playlist")
+```
+
+---
+
+## Complete Example
+
+Here's a comprehensive example using multiple user operations:
+
+```python
+from spotify_sdk import SpotifyClient
+
+async def user_profile_summary():
+    """Generate a comprehensive user profile summary."""
+    client = SpotifyClient(auth_token="your_token")
+    
+    # Get user profile
+    user = await client.users.get_current_profile()
+    
+    print(f"=== Profile: {user.display_name} ===")
+    print(f"Subscription: {user.product}")
+    print(f"Country: {user.country}")
+    print(f"Followers: {user.followers.total}")
+    
+    # Get top artists (short term)
+    top_artists = await client.users.get_top_artists(
+        time_range="short_term",
+        limit=5
+    )
+    
+    print("\n=== Top Artists (Last Month) ===")
+    for i, artist in enumerate(top_artists.items, 1):
+        print(f"{i}. {artist.name}")
+    
+    # Get top tracks (long term)
+    top_tracks = await client.users.get_top_tracks(
+        time_range="long_term",
+        limit=5
+    )
+    
+    print("\n=== Top Tracks (All Time) ===")
+    for i, track in enumerate(top_tracks.items, 1):
+        artists = ", ".join(a.name for a in track.artists)
+        print(f"{i}. {track.name} - {artists}")
+    
+    # Get followed artists
+    followed = await client.users.get_followed_artists(limit=10)
+    
+    print(f"\n=== Following {followed.total} Artists ===")
+    for artist in followed.items[:5]:
+        print(f"  - {artist.name}")
+    
+    # Check if following specific artists
+    check_artists = [
+        "0OdUWJ0sBjDrqHygGUXeCF",  # Band of Horses
+        "3TVXtAsR1Inumwj472S9r4"   # Drake
+    ]
+    
+    is_following = await client.users.check_follows_artists_or_users(
+        type_="artist",
+        ids=check_artists
+    )
+    
+    print("\n=== Artist Follow Status ===")
+    for artist_id, following in zip(check_artists, is_following):
+        status = "✓" if following else "✗"
+        print(f"{status} {artist_id}")
+
+# Run the example
+import asyncio
+asyncio.run(user_profile_summary())
+```
+
+## Time Range Reference
+
+<ResponseField name="TimeRange" type="Literal">
+  Valid time range values for top items:
+  
+  | Value | Description | Approximate Period |
+  |-------|-------------|-------------------|
+  | `"short_term"` | Recent listening | Last 4 weeks |
+  | `"medium_term"` | Medium-term listening (default) | Last 6 months |
+  | `"long_term"` | All-time favorites | Several years |
+</ResponseField>
+
+## Error Handling
+
+```python
+try:
+    # Invalid time range
+    artists = await client.users.get_top_artists(
+        time_range="invalid_range"
+    )
+except ValueError as e:
+    print(f"Error: {e}")  # Lists valid time ranges
+
+try:
+    # Empty ID list
+    await client.users.follow_artists_or_users(
+        type_="artist",
+        ids=[]
+    )
+except ValueError as e:
+    print(f"Error: {e}")  # "ids cannot be empty"
+
+try:
+    # Invalid follow type
+    await client.users.follow_artists_or_users(
+        type_="invalid",
+        ids=["id"]
+    )
+except ValueError as e:
+    print(f"Error: {e}")  # Lists valid types
+```
+
+<Tip>
+  Use different `time_range` values to understand how user preferences change over time. Short-term data reflects current trends, while long-term shows enduring favorites.
+</Tip>
+
+<Note>
+  Many user operations require specific OAuth scopes:
+  - `user-read-private` - Read user profile
+  - `user-read-email` - Read email address
+  - `user-top-read` - Read top artists and tracks
+  - `user-follow-read` - Read followed artists
+  - `user-follow-modify` - Modify follows
+  - `playlist-modify-public` / `playlist-modify-private` - Follow/unfollow playlists
+</Note>

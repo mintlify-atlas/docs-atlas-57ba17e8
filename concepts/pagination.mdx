@@ -1,0 +1,570 @@
+---
+title: Pagination
+description: Learn how to work with paginated responses from the Spotify API using limit, offset, and Page objects
+---
+
+Many Spotify API endpoints return paginated results to efficiently handle large datasets. The SDK provides a `Page` object for working with paginated responses.
+
+## Understanding Pagination
+
+When requesting lists of items (tracks, albums, playlists, etc.), the API returns a subset of results along with metadata for navigating to other pages.
+
+### Page Object
+
+Paginated responses are returned as `Page[T]` objects:
+
+```python
+from spotify_sdk.models import Page
+
+class Page(SpotifyModel, Generic[T]):
+    """Paginated response containing items and navigation links."""
+    
+    href: str           # API URL for this page
+    limit: int          # Maximum items per page
+    next: str | None    # URL for next page (None if last page)
+    offset: int         # Index of first item on this page
+    previous: str | None # URL for previous page (None if first page)
+    total: int          # Total number of items available
+    items: list[T]      # Items on this page
+```
+
+**Source**: `src/spotify_sdk/models/common.py:64-73`
+
+<ParamField path="href" type="str">
+  Full API URL for the current page
+</ParamField>
+
+<ParamField path="limit" type="int">
+  Maximum number of items per page (as requested)
+</ParamField>
+
+<ParamField path="next" type="str | None">
+  URL to fetch the next page, or `None` if this is the last page
+</ParamField>
+
+<ParamField path="offset" type="int">
+  Zero-based index of the first item on this page
+</ParamField>
+
+<ParamField path="previous" type="str | None">
+  URL to fetch the previous page, or `None` if this is the first page
+</ParamField>
+
+<ParamField path="total" type="int">
+  Total number of items available across all pages
+</ParamField>
+
+<ParamField path="items" type="list[T]">
+  The items on this page (type-safe list)
+</ParamField>
+
+## Basic Pagination
+
+### Fetching the First Page
+
+Most endpoints accept `limit` and `offset` parameters:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+# Get first 20 tracks from an album
+tracks_page = client.albums.get_tracks(
+    "4aawyAB9vmqN3uQ7FjRGTy",
+    limit=20,
+    offset=0,
+)
+
+print(f"Total tracks: {tracks_page.total}")
+print(f"Returned: {len(tracks_page.items)} tracks")
+print(f"Has more: {tracks_page.next is not None}")
+
+for track in tracks_page.items:
+    print(f"{track.track_number}. {track.name}")
+
+client.close()
+```
+
+**Source**: Example from `src/spotify_sdk/_async/services/albums.py:57-82`
+
+### Pagination Parameters
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of items to return. Most endpoints support 1-50, with a default of 20.
+</ParamField>
+
+<ParamField path="offset" type="int" default="0">
+  Zero-based index of the first item to return. Use this to page through results.
+</ParamField>
+
+## Iterating Through Pages
+
+### Manual Pagination
+
+Fetch pages one at a time:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+album_id = "4aawyAB9vmqN3uQ7FjRGTy"
+offset = 0
+limit = 20
+
+while True:
+    page = client.albums.get_tracks(album_id, limit=limit, offset=offset)
+    
+    for track in page.items:
+        print(f"{track.track_number}. {track.name}")
+    
+    # Check if there are more pages
+    if page.next is None:
+        break
+    
+    # Move to next page
+    offset += limit
+
+client.close()
+```
+
+### Async Pagination
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def fetch_all_tracks(album_id: str):
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        all_tracks = []
+        offset = 0
+        limit = 50  # Maximum for this endpoint
+        
+        while True:
+            page = await client.albums.get_tracks(
+                album_id,
+                limit=limit,
+                offset=offset,
+            )
+            
+            all_tracks.extend(page.items)
+            
+            if page.next is None:
+                break
+            
+            offset += limit
+        
+        return all_tracks
+
+tracks = asyncio.run(fetch_all_tracks("4aawyAB9vmqN3uQ7FjRGTy"))
+print(f"Total tracks fetched: {len(tracks)}")
+```
+
+### Helper Function
+
+Create a reusable pagination helper:
+
+<CodeGroup>
+```python Sync
+from typing import TypeVar, Callable
+from spotify_sdk.models import Page
+
+T = TypeVar("T")
+
+def fetch_all_pages(
+    fetch_page: Callable[[int, int], Page[T]],
+    limit: int = 50,
+) -> list[T]:
+    """Fetch all items from a paginated endpoint."""
+    all_items = []
+    offset = 0
+    
+    while True:
+        page = fetch_page(limit, offset)
+        all_items.extend(page.items)
+        
+        if page.next is None:
+            break
+        
+        offset += limit
+    
+    return all_items
+
+# Usage
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+tracks = fetch_all_pages(
+    lambda limit, offset: client.albums.get_tracks(
+        "4aawyAB9vmqN3uQ7FjRGTy",
+        limit=limit,
+        offset=offset,
+    )
+)
+
+print(f"Total tracks: {len(tracks)}")
+client.close()
+```
+
+```python Async
+import asyncio
+from typing import TypeVar, Callable, Awaitable
+from spotify_sdk.models import Page
+
+T = TypeVar("T")
+
+async def fetch_all_pages_async(
+    fetch_page: Callable[[int, int], Awaitable[Page[T]]],
+    limit: int = 50,
+) -> list[T]:
+    """Fetch all items from a paginated endpoint asynchronously."""
+    all_items = []
+    offset = 0
+    
+    while True:
+        page = await fetch_page(limit, offset)
+        all_items.extend(page.items)
+        
+        if page.next is None:
+            break
+        
+        offset += limit
+    
+    return all_items
+
+# Usage
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        tracks = await fetch_all_pages_async(
+            lambda limit, offset: client.albums.get_tracks(
+                "4aawyAB9vmqN3uQ7FjRGTy",
+                limit=limit,
+                offset=offset,
+            )
+        )
+        print(f"Total tracks: {len(tracks)}")
+
+asyncio.run(main())
+```
+</CodeGroup>
+
+## Common Pagination Patterns
+
+### Album Tracks
+
+Get all tracks from an album:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+# First page
+page = client.albums.get_tracks(
+    "4aawyAB9vmqN3uQ7FjRGTy",
+    limit=50,
+    offset=0,
+)
+
+print(f"Album has {page.total} tracks")
+for track in page.items:
+    print(f"{track.track_number}. {track.name} ({track.duration_ms}ms)")
+
+client.close()
+```
+
+### Saved Albums
+
+Iterate through a user's saved albums:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.auth import AuthorizationCode
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-library-read"],
+)
+auth.authorize_local()
+
+client = SpotifyClient(auth_provider=auth)
+
+offset = 0
+limit = 50
+
+while True:
+    page = client.albums.get_saved(limit=limit, offset=offset)
+    
+    for saved_album in page.items:
+        album = saved_album.album
+        added_at = saved_album.added_at
+        print(f"{album.name} by {album.artists[0].name} (added {added_at})")
+    
+    if page.next is None:
+        break
+    
+    offset += limit
+
+client.close()
+```
+
+**Source**: Example from `src/spotify_sdk/_async/services/albums.py:100-120`
+
+### Search Results
+
+Paginate through search results:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+# Search for tracks
+results = client.search.search(
+    q="kind of blue",
+    types=["track"],
+    limit=20,
+    offset=0,
+)
+
+if results.tracks:
+    tracks_page = results.tracks
+    print(f"Found {tracks_page.total} tracks")
+    
+    for track in tracks_page.items:
+        print(f"{track.name} by {track.artists[0].name}")
+    
+    # Check for more results
+    if tracks_page.next:
+        print(f"More results available (showing {len(tracks_page.items)}/{tracks_page.total})")
+
+client.close()
+```
+
+### New Releases
+
+Paginate through new album releases:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+page = client.albums.get_new_releases(limit=20, offset=0)
+
+print(f"Total new releases: {page.total}")
+
+for album in page.items:
+    print(f"{album.name} by {album.artists[0].name}")
+    print(f"  Released: {album.release_date}")
+    print(f"  Tracks: {album.total_tracks}")
+
+client.close()
+```
+
+**Source**: Example from `src/spotify_sdk/_async/services/albums.py:84-98`
+
+## Pagination Limits
+
+Different endpoints have different limits:
+
+| Endpoint | Min | Max | Default |
+|----------|-----|-----|--------|
+| Album tracks | 1 | 50 | 20 |
+| Saved albums | 1 | 50 | 20 |
+| Playlist tracks | 1 | 50 | 20 |
+| Search results | 1 | 50 | 20 |
+| Artist albums | 1 | 50 | 20 |
+
+<Warning>
+Requesting more than the maximum limit returns a `BadRequestError`.
+</Warning>
+
+## Performance Optimization
+
+### Use Maximum Limit
+
+Reduce the number of requests by using the maximum limit:
+
+```python
+# Inefficient: 5 requests for 100 items
+for i in range(5):
+    page = client.albums.get_tracks(album_id, limit=20, offset=i*20)
+
+# Efficient: 2 requests for 100 items
+for i in range(2):
+    page = client.albums.get_tracks(album_id, limit=50, offset=i*50)
+```
+
+### Concurrent Pagination (Async)
+
+Fetch multiple pages concurrently:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def fetch_page(client, album_id, offset):
+    return await client.albums.get_tracks(album_id, limit=50, offset=offset)
+
+async def fetch_all_tracks_concurrent(album_id: str):
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        # Get first page to determine total
+        first_page = await client.albums.get_tracks(album_id, limit=50, offset=0)
+        total = first_page.total
+        
+        # Calculate remaining pages
+        offsets = range(50, total, 50)
+        
+        # Fetch remaining pages concurrently
+        tasks = [fetch_page(client, album_id, offset) for offset in offsets]
+        remaining_pages = await asyncio.gather(*tasks)
+        
+        # Combine all items
+        all_tracks = first_page.items
+        for page in remaining_pages:
+            all_tracks.extend(page.items)
+        
+        return all_tracks
+
+tracks = asyncio.run(fetch_all_tracks_concurrent("4aawyAB9vmqN3uQ7FjRGTy"))
+print(f"Fetched {len(tracks)} tracks")
+```
+
+<Info>
+Be mindful of rate limits when making concurrent requests. The SDK automatically handles retries with exponential backoff.
+</Info>
+
+### Stop Early
+
+Stop pagination when you have enough items:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+def get_first_n_tracks(album_id: str, n: int):
+    tracks = []
+    offset = 0
+    limit = min(50, n)  # Don't fetch more than needed
+    
+    while len(tracks) < n:
+        page = client.albums.get_tracks(album_id, limit=limit, offset=offset)
+        tracks.extend(page.items)
+        
+        if page.next is None:
+            break
+        
+        offset += limit
+    
+    return tracks[:n]  # Return exactly n items
+
+# Get only the first 10 tracks
+tracks = get_first_n_tracks("4aawyAB9vmqN3uQ7FjRGTy", 10)
+print(f"Got {len(tracks)} tracks")
+client.close()
+```
+
+## Checking for More Pages
+
+Use the `next` field to determine if more pages are available:
+
+```python
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(access_token="your-access-token")
+
+page = client.albums.get_tracks("4aawyAB9vmqN3uQ7FjRGTy", limit=20)
+
+if page.next is not None:
+    print(f"More tracks available. Showing {len(page.items)} of {page.total}")
+else:
+    print(f"All {len(page.items)} tracks shown")
+
+# Alternative: check offset and total
+if (page.offset + len(page.items)) < page.total:
+    print("More pages available")
+else:
+    print("Last page")
+
+client.close()
+```
+
+## Cursor-Based Pagination
+
+Some endpoints use cursor-based pagination instead of offset:
+
+```python
+from spotify_sdk.models import CursorPage
+
+class CursorPage(SpotifyModel, Generic[T]):
+    """Cursor-paginated response containing items and a next page link."""
+    
+    href: str
+    limit: int
+    next: str | None
+    cursors: Cursor
+    total: int
+    items: list[T]
+```
+
+**Source**: `src/spotify_sdk/models/common.py:83-91`
+
+Cursor pagination is used for endpoints where the data changes frequently (e.g., recently played tracks). The SDK handles cursor pagination automatically.
+
+## Best Practices
+
+<Steps>
+  <Step title="Use Maximum Limit">
+    Reduce API calls by using the maximum allowed limit:
+    
+    ```python
+    page = client.albums.get_tracks(album_id, limit=50)
+    ```
+  </Step>
+  
+  <Step title="Check Total Count">
+    Use the `total` field to display progress or avoid unnecessary requests:
+    
+    ```python
+    page = client.albums.get_tracks(album_id, limit=50)
+    print(f"Fetching {page.total} tracks...")
+    ```
+  </Step>
+  
+  <Step title="Stop When Done">
+    Check `page.next` to avoid requesting empty pages:
+    
+    ```python
+    if page.next is None:
+        break  # No more pages
+    ```
+  </Step>
+  
+  <Step title="Handle Empty Results">
+    Check if `items` is empty:
+    
+    ```python
+    if not page.items:
+        print("No tracks found")
+    ```
+  </Step>
+  
+  <Step title="Respect Rate Limits">
+    Be mindful when fetching many pages:
+    
+    ```python
+    # The SDK automatically handles rate limits
+    # But consider adding delays for very large datasets
+    import time
+    time.sleep(0.1)  # Small delay between pages
+    ```
+  </Step>
+</Steps>

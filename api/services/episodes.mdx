@@ -1,0 +1,207 @@
+---
+title: "Episodes Service"
+description: "API reference for Spotify SDK episode operations including retrieving podcast episodes and managing saved episodes"
+---
+
+## Overview
+
+The `EpisodeService` (sync) and `AsyncEpisodeService` (async) provide methods for retrieving Spotify podcast episode information and managing saved episodes in the user's library.
+
+<Note>
+Both sync and async versions are available. Import `EpisodeService` for sync operations or `AsyncEpisodeService` for async operations.
+</Note>
+
+## Methods
+
+### get
+
+Retrieve detailed information about a single podcast episode by its Spotify ID.
+
+```python
+async def get(id: str, market: str | None = None) -> Episode
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the episode.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for availability. Episode availability may vary by region.
+</ParamField>
+
+**Returns:** `Episode` - The complete episode object with metadata including show information, duration, and description.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    episode = await client.episodes.get("512ojhOuo1ktJprKbVcKyQ", market="US")
+    
+    print(f"Episode: {episode.name}")
+    print(f"Show: {episode.show.name if episode.show else 'N/A'}")
+    
+    # Duration formatting
+    duration_min = episode.duration_ms // 60000
+    duration_sec = (episode.duration_ms % 60000) // 1000
+    print(f"Duration: {duration_min}:{duration_sec:02d}")
+    
+    print(f"Release Date: {episode.release_date}")
+    print(f"Language: {episode.language}")
+    
+    if episode.description:
+        print(f"Description: {episode.description[:200]}...")
+    
+    # Audio preview (if available)
+    if episode.audio_preview_url:
+        print(f"Preview URL: {episode.audio_preview_url}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    episode = client.episodes.get("512ojhOuo1ktJprKbVcKyQ", market="US")
+    print(f"Episode: {episode.name}")
+    print(f"Show: {episode.show.name if episode.show else 'N/A'}")
+```
+</CodeGroup>
+
+---
+
+### get_saved
+
+Retrieve podcast episodes saved in the current user's library.
+
+```python
+async def get_saved(
+    limit: int = 20,
+    offset: int = 0,
+    market: str | None = None
+) -> Page[SavedEpisode]
+```
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of episodes to return. Valid range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int" default="0">
+  Index of the first episode to return (for pagination).
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code.
+</ParamField>
+
+**Returns:** `Page[SavedEpisode]` - Paginated response containing saved episode objects with metadata.
+
+<Note>
+Requires the `user-library-read` scope.
+</Note>
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    saved = await client.episodes.get_saved(limit=20, market="US")
+    
+    print(f"You have {saved.total} saved episodes")
+    
+    for saved_episode in saved.items:
+        episode = saved_episode.episode
+        print(f"\n{episode.name}")
+        print(f"  Show: {episode.show.name if episode.show else 'N/A'}")
+        print(f"  Added on: {saved_episode.added_at}")
+        
+        duration_min = episode.duration_ms // 60000
+        duration_sec = (episode.duration_ms % 60000) // 1000
+        print(f"  Duration: {duration_min}:{duration_sec:02d}")
+    
+    # Pagination
+    if saved.next:
+        print("\nMore episodes available...")
+        next_page = await client.episodes.get_saved(limit=20, offset=20, market="US")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    saved = client.episodes.get_saved(limit=10, market="US")
+    
+    print(f"Total saved episodes: {saved.total}")
+    for saved_episode in saved.items:
+        episode = saved_episode.episode
+        print(f"{episode.name} - {episode.show.name if episode.show else 'N/A'}")
+```
+</CodeGroup>
+
+<Tip>
+Use the `added_at` timestamp from `SavedEpisode` to sort or filter episodes by when they were saved.
+</Tip>
+
+## Response Models
+
+### SavedEpisode
+
+The `SavedEpisode` model wraps an episode with save metadata:
+
+<ResponseField name="added_at" type="datetime">
+  The timestamp when the episode was saved to the library.
+</ResponseField>
+
+<ResponseField name="episode" type="Episode">
+  The full episode object.
+</ResponseField>
+
+### Episode
+
+The `Episode` model includes:
+
+<ResponseField name="id" type="str">
+  The Spotify ID for the episode.
+</ResponseField>
+
+<ResponseField name="name" type="str">
+  The name of the episode.
+</ResponseField>
+
+<ResponseField name="description" type="str">
+  A description of the episode (may contain HTML).
+</ResponseField>
+
+<ResponseField name="duration_ms" type="int">
+  The episode length in milliseconds.
+</ResponseField>
+
+<ResponseField name="release_date" type="str">
+  The date the episode was first released.
+</ResponseField>
+
+<ResponseField name="language" type="str">
+  The language used in the episode (ISO 639 code).
+</ResponseField>
+
+<ResponseField name="show" type="SimplifiedShow | None">
+  Information about the podcast show.
+</ResponseField>
+
+<ResponseField name="audio_preview_url" type="str | None">
+  A URL to a 30-second preview (MP3 format) of the episode, if available.
+</ResponseField>
+
+## Related Models
+
+- `Episode` - Full episode object with complete metadata
+- `SavedEpisode` - Episode object with save timestamp
+- `SimplifiedShow` - Basic show information included with episodes
+- `Page[T]` - Paginated response wrapper
+
+## See Also
+
+- [Library Service](/api/services/library) - Save and remove library items
+- [Chapters Service](/api/services/chapters) - Work with audiobook chapters
+- [Authentication](/concepts/authentication) - Required scopes and auth flows

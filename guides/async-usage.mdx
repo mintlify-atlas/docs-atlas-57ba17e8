@@ -1,0 +1,356 @@
+---
+title: Async Usage
+description: Complete guide to using AsyncSpotifyClient with async/await patterns for high-performance API interactions
+---
+
+# Async Usage
+
+The `AsyncSpotifyClient` provides full async/await support for non-blocking I/O operations, enabling you to build high-performance applications that can handle multiple concurrent requests efficiently.
+
+## Basic Async Example
+
+Here's a simple example showing how to use `AsyncSpotifyClient` with async/await:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        album = await client.albums.get("4Uv86qWpGTxf7fU7lG5X6F")
+        print(f"{album.name} by {album.artists[0].name}")
+        # "The College Dropout by Kanye West"
+
+asyncio.run(main())
+```
+
+<Note>
+Always use `async with` to ensure proper resource cleanup. The context manager automatically calls `close()` when exiting.
+</Note>
+
+## Client Initialization
+
+The `AsyncSpotifyClient` supports multiple authentication methods:
+
+<CodeGroup>
+
+```python Access Token
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(access_token="your-access-token")
+```
+
+```python Client Credentials
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient.from_client_credentials(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    timeout=30.0,
+    max_retries=3,
+)
+```
+
+```python Auth Provider
+from spotify_sdk import AsyncSpotifyClient
+from spotify_sdk.auth import AsyncAuthorizationCode, FileTokenCache
+
+auth = AsyncAuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private", "user-library-read"],
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+
+await auth.authorize_local_async()
+
+client = AsyncSpotifyClient(auth_provider=auth)
+```
+
+</CodeGroup>
+
+## Configuration Options
+
+The `AsyncSpotifyClient` accepts the following initialization parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `access_token` | `str \| None` | `None` | Spotify API access token |
+| `client_id` | `str \| None` | `None` | Spotify API client ID |
+| `client_secret` | `str \| None` | `None` | Spotify API client secret |
+| `auth_provider` | `AsyncAuthProvider \| None` | `None` | Auth provider for dynamic access tokens |
+| `timeout` | `float` | `30.0` | Default request timeout in seconds |
+| `max_retries` | `int` | `3` | Maximum number of retries for failed requests |
+
+## Concurrent Requests
+
+One of the key benefits of async is the ability to run multiple requests concurrently using `asyncio.gather()`:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def fetch_multiple_albums():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        # Fetch multiple albums concurrently
+        albums = await asyncio.gather(
+            client.albums.get("5K79FLRUCSysQnVESLcTdb"),  # Bad Bunny
+            client.albums.get("4Uv86qWpGTxf7fU7lG5X6F"),  # Kanye West
+            client.albums.get("4aawyAB9vmqN3uQ7FjRGTy"),  # Global Warming
+        )
+        
+        for album in albums:
+            print(f"{album.name} by {album.artists[0].name}")
+
+asyncio.run(fetch_multiple_albums())
+```
+
+<Tip>
+Using `asyncio.gather()` can significantly improve performance when fetching multiple independent resources. Instead of waiting for each request sequentially, all requests are sent concurrently.
+</Tip>
+
+## Advanced Concurrent Patterns
+
+Here's a more advanced example that fetches an album and its tracks concurrently:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def fetch_album_with_details():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        album_id = "5K79FLRUCSysQnVESLcTdb"
+        
+        # Fetch album and tracks in parallel
+        album, tracks = await asyncio.gather(
+            client.albums.get(album_id),
+            client.albums.get_tracks(album_id, limit=50),
+        )
+        
+        print(f"Album: {album.name}")
+        print(f"Total tracks: {album.total_tracks}")
+        print(f"\nFirst {len(tracks.items)} tracks:")
+        for track in tracks.items:
+            print(f"{track.track_number}. {track.name}")
+
+asyncio.run(fetch_album_with_details())
+```
+
+## Processing Multiple Items
+
+When you need to process a list of IDs, you can use `asyncio.gather()` with a list comprehension:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def fetch_multiple_artists():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        artist_ids = [
+            "0TnOYISbd1XYRBk9myaseg",  # Pitbull
+            "66CXWjxzNUsdJxJ2JdwvnR",  # Ariana Grande
+            "1Xyo4u8uXC1ZmMpatF05PJ",  # The Weeknd
+        ]
+        
+        # Fetch all artists concurrently
+        artists = await asyncio.gather(
+            *[client.artists.get(artist_id) for artist_id in artist_ids]
+        )
+        
+        for artist in artists:
+            print(f"{artist.name} - Followers: {artist.followers.total:,}")
+
+asyncio.run(fetch_multiple_artists())
+```
+
+## Performance Benefits
+
+Async is particularly beneficial when:
+
+<Steps>
+
+### Making Multiple API Calls
+When you need to fetch multiple resources, async allows you to make concurrent requests instead of waiting for each one sequentially.
+
+### Building Web Applications
+Async frameworks like FastAPI and Sanic benefit from non-blocking I/O, allowing them to handle more concurrent users.
+
+### Processing Large Datasets
+When processing playlists, albums, or user libraries with many items, async can significantly reduce total processing time.
+
+### Integrating with Other Async Libraries
+If your application already uses async libraries (databases, message queues, etc.), using `AsyncSpotifyClient` maintains consistency.
+
+</Steps>
+
+## Resource Cleanup
+
+Always ensure proper cleanup of async resources:
+
+<CodeGroup>
+
+```python Using Context Manager (Recommended)
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        album = await client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+        print(album.name)
+    # Client automatically closed when exiting context
+
+asyncio.run(main())
+```
+
+```python Manual Cleanup
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+
+async def main():
+    client = AsyncSpotifyClient(access_token="your-access-token")
+    try:
+        album = await client.albums.get("4aawyAB9vmqN3uQ7FjRGTy")
+        print(album.name)
+    finally:
+        await client.close()
+
+asyncio.run(main())
+```
+
+</CodeGroup>
+
+<Warning>
+Failing to close the client properly can lead to resource leaks. Always use `async with` or call `await client.close()` explicitly.
+</Warning>
+
+## Error Handling with Async
+
+Error handling works the same way as with the sync client:
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient, NotFoundError, RateLimitError
+
+async def fetch_album_safe():
+    async with AsyncSpotifyClient(access_token="your-access-token") as client:
+        try:
+            album = await client.albums.get("invalid_id")
+            print(album.name)
+        except NotFoundError as e:
+            print(f"Album not found: {e.message}")
+        except RateLimitError as e:
+            print(f"Rate limited. Retry after {e.retry_after} seconds")
+            await asyncio.sleep(e.retry_after)
+            # Retry the request
+            album = await client.albums.get("invalid_id")
+
+asyncio.run(fetch_album_safe())
+```
+
+## Integration with FastAPI
+
+Here's an example of using `AsyncSpotifyClient` in a FastAPI application:
+
+```python
+from fastapi import FastAPI, HTTPException
+from spotify_sdk import AsyncSpotifyClient, NotFoundError
+import os
+
+app = FastAPI()
+
+# Initialize client once at startup
+client = AsyncSpotifyClient.from_client_credentials(
+    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
+    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET"),
+)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await client.close()
+
+@app.get("/albums/{album_id}")
+async def get_album(album_id: str):
+    try:
+        album = await client.albums.get(album_id)
+        return {
+            "id": album.id,
+            "name": album.name,
+            "artists": [artist.name for artist in album.artists],
+            "release_date": album.release_date,
+        }
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Album not found")
+```
+
+## Available Services
+
+All services available on the sync client are also available on `AsyncSpotifyClient`:
+
+- `client.albums` - Album operations
+- `client.artists` - Artist operations
+- `client.audiobooks` - Audiobook operations
+- `client.chapters` - Chapter operations
+- `client.episodes` - Episode operations
+- `client.library` - User library operations
+- `client.playlists` - Playlist operations
+- `client.search` - Search operations
+- `client.shows` - Show operations
+- `client.tracks` - Track operations
+- `client.users` - User operations
+
+All service methods are async and must be awaited.
+
+## Best Practices
+
+<Accordion title="Use context managers for automatic cleanup">
+Always use `async with` to ensure the HTTP client and auth provider are properly closed:
+
+```python
+async with AsyncSpotifyClient(access_token="token") as client:
+    # Your code here
+    pass
+# Automatically closed
+```
+</Accordion>
+
+<Accordion title="Batch concurrent requests with asyncio.gather()">
+When fetching multiple independent resources, use `asyncio.gather()` for better performance:
+
+```python
+albums = await asyncio.gather(
+    client.albums.get(id1),
+    client.albums.get(id2),
+    client.albums.get(id3),
+)
+```
+</Accordion>
+
+<Accordion title="Handle rate limits gracefully">
+The SDK automatically retries rate-limited requests, but you can also handle them manually:
+
+```python
+try:
+    result = await client.search.search("query", types=["album"])
+except RateLimitError as e:
+    await asyncio.sleep(e.retry_after)
+    result = await client.search.search("query", types=["album"])
+```
+</Accordion>
+
+<Accordion title="Reuse client instances">
+Creating a new client for every request is inefficient. Reuse the same client instance:
+
+```python
+# Good: One client for multiple requests
+async with AsyncSpotifyClient(access_token="token") as client:
+    album1 = await client.albums.get(id1)
+    album2 = await client.albums.get(id2)
+
+# Bad: Creating multiple clients
+async with AsyncSpotifyClient(access_token="token") as client1:
+    album1 = await client1.albums.get(id1)
+async with AsyncSpotifyClient(access_token="token") as client2:
+    album2 = await client2.albums.get(id2)
+```
+</Accordion>

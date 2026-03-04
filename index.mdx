@@ -1,97 +1,131 @@
----
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
----
+<div className="relative overflow-hidden bg-gradient-to-br from-[#1DB954] to-[#1aa34a] dark:from-[#1aa34a] dark:to-[#0d5a28] py-20">
+  <div className="max-w-7xl mx-auto px-6 lg:px-8">
+    <div className="text-center">
+      <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+        Spotify SDK for Python
+      </h1>
+      <p className="text-lg sm:text-xl text-white/90 max-w-2xl mx-auto mb-8">
+        A type-safe Python SDK for the Spotify Web API with full async support, automatic retries, and comprehensive error handling
+      </p>
+      <div className="flex flex-col sm:flex-row gap-4 justify-center items-center flex-wrap">
+        <a 
+          href="/quickstart" 
+          className="inline-flex items-center px-6 py-3 rounded-lg bg-white text-[#1DB954] font-semibold hover:bg-gray-100 transition-colors no-underline"
+        >
+          Get Started
+        </a>
+        <a 
+          href="/api/spotify-client" 
+          className="inline-flex items-center px-6 py-3 rounded-lg border-2 border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors no-underline"
+        >
+          API Reference
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
-## Setting up
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4">Quick start</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Get up and running with the Spotify SDK in minutes</p>
+  
+  <Steps>
+    <Step title="Install the package">
+      Install the SDK using pip or uv:
+      
+      <CodeGroup>
+      ```bash pip
+      pip install spotify-sdk
+      ```
+      ```bash uv
+      uv add spotify-sdk
+      ```
+      </CodeGroup>
+    </Step>
+    
+    <Step title="Create a client">
+      Initialize the client with your access token:
+      
+      ```python
+      from spotify_sdk import SpotifyClient
+      
+      client = SpotifyClient(access_token="your-access-token")
+      ```
+      
+      <Tip>Need credentials? Get them from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)</Tip>
+    </Step>
+    
+    <Step title="Make your first request">
+      Fetch album details with full type safety:
+      
+      ```python
+      album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+      print(f"{album.name} by {album.artists[0].name}")
+      # Output: "DeBÍ TiRAR MáS FOToS by Bad Bunny"
+      
+      client.close()
+      ```
+    </Step>
+  </Steps>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4">Explore the SDK</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Discover all the features and services available</p>
+  
+  <CardGroup cols={2}>
+    <Card title="Authentication" icon="key" href="/concepts/authentication">
+      Learn about access tokens, client credentials, and authorization code flows
+    </Card>
+    <Card title="Async support" icon="bolt" href="/guides/async-usage">
+      Use AsyncSpotifyClient for concurrent requests and better performance
+    </Card>
+    <Card title="Error handling" icon="shield" href="/concepts/error-handling">
+      Handle rate limits, authentication errors, and server failures gracefully
+    </Card>
+    <Card title="Context managers" icon="brackets-curly" href="/guides/context-managers">
+      Manage resources cleanly with with and async with support
+    </Card>
+  </CardGroup>
+</div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <h2 className="text-3xl font-semibold text-gray-900 dark:text-white mb-4">API services</h2>
+  <p className="text-base text-gray-600 dark:text-gray-400 mb-8">Access all Spotify Web API endpoints with type-safe methods</p>
+  
+  <CardGroup cols={3}>
+    <Card title="Albums" icon="album" href="/api/services/albums">
+      Get albums, tracks, and discographies
+    </Card>
+    <Card title="Artists" icon="microphone" href="/api/services/artists">
+      Fetch artist details and top tracks
+    </Card>
+    <Card title="Playlists" icon="list-music" href="/api/services/playlists">
+      Create and manage playlists
+    </Card>
+    <Card title="Tracks" icon="music" href="/api/services/tracks">
+      Search and retrieve track information
+    </Card>
+    <Card title="Users" icon="user" href="/api/services/users">
+      Access user profiles and preferences
+    </Card>
+    <Card title="Search" icon="magnifying-glass" href="/api/services/search">
+      Search across all content types
+    </Card>
+  </CardGroup>
+</div>
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl border border-gray-200 dark:border-[#27272a] bg-gray-50 dark:bg-[#1a1d27] p-8">
+    <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">Ready to build?</h2>
+    <p className="text-base text-gray-600 dark:text-gray-400 mb-6">
+      Start building your Spotify integration with our comprehensive SDK
+    </p>
+    <a 
+      href="/quickstart" 
+      className="inline-flex items-center px-6 py-3 rounded-lg bg-[#1DB954] text-white font-semibold hover:bg-[#1aa34a] transition-colors no-underline"
+    >
+      Get Started Now
+    </a>
+  </div>
+</div>

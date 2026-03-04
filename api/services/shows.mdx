@@ -1,0 +1,342 @@
+---
+title: "ShowService"
+description: "Complete API reference for accessing Spotify shows (podcasts) and their episodes"
+---
+
+## Overview
+
+The `AsyncShowService` provides operations for retrieving Spotify shows (podcasts), their episodes, and managing saved shows in the user's library.
+
+<Note>
+  This service is available in both async (`AsyncShowService`) and sync (`ShowService`) variants.
+</Note>
+
+## Get Show
+
+Retrieve detailed information about a specific show.
+
+```python
+async def get(self, id: str, market: str | None = None) -> Show
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the show.
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code. If provided, only content available in that market will be returned.
+  
+  Example: `"US"`, `"GB"`, `"CA"`
+</ParamField>
+
+### Returns
+
+<ResponseField name="Show" type="Show">
+  Complete show object including metadata, publisher information, episodes preview, and availability.
+  
+  **Key fields:**
+  - `name` - Show title
+  - `publisher` - Show publisher/creator
+  - `description` - Show description
+  - `episodes` - Preview of recent episodes
+  - `total_episodes` - Total number of episodes
+  - `languages` - Available languages
+  - `images` - Show cover images
+  - `explicit` - Whether show contains explicit content
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Async
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(auth_token="your_token")
+
+# Get show details
+show = await client.shows.get("4rOoJ6Egrf8K2IrywzwOMk")
+
+print(f"Show: {show.name}")
+print(f"Publisher: {show.publisher}")
+print(f"Total Episodes: {show.total_episodes}")
+print(f"Description: {show.description}")
+
+# Get show for specific market
+show = await client.shows.get(
+    "4rOoJ6Egrf8K2IrywzwOMk",
+    market="US"
+)
+```
+
+```python Sync
+from spotify_sdk import SpotifySyncClient
+
+client = SpotifySyncClient(auth_token="your_token")
+
+show = client.shows.get("4rOoJ6Egrf8K2IrywzwOMk")
+print(f"Show: {show.name}")
+print(f"Publisher: {show.publisher}")
+```
+</CodeGroup>
+
+---
+
+## Get Show Episodes
+
+Retrieve paginated list of episodes for a specific show.
+
+```python
+async def get_episodes(
+    self,
+    id: str,
+    market: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> Page[SimplifiedEpisode]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the show.
+</ParamField>
+
+<ParamField path="market" type="str | None">
+  An ISO 3166-1 alpha-2 country code for market availability filtering.
+</ParamField>
+
+<ParamField path="limit" type="int">
+  Maximum number of episodes to return. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int">
+  Index of the first episode to return. Default: 0. Use with `limit` for pagination.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[SimplifiedEpisode]" type="Page[SimplifiedEpisode]">
+  Paginated list of simplified episode objects.
+  
+  **Episode fields include:**
+  - `name` - Episode title
+  - `description` - Episode description
+  - `release_date` - Release date
+  - `duration_ms` - Duration in milliseconds
+  - `explicit` - Explicit content flag
+  - `images` - Episode images
+  - `languages` - Available languages
+  - `audio_preview_url` - Preview URL (if available)
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Basic Usage
+# Get first page of episodes
+episodes = await client.shows.get_episodes(
+    "4rOoJ6Egrf8K2IrywzwOMk",
+    limit=20
+)
+
+for episode in episodes.items:
+    duration_min = episode.duration_ms // 60000
+    print(f"{episode.name} - {duration_min} minutes")
+    print(f"Released: {episode.release_date}")
+
+print(f"\nTotal episodes: {episodes.total}")
+```
+
+```python Pagination
+# Get all episodes using pagination
+all_episodes = []
+offset = 0
+limit = 50
+
+while True:
+    page = await client.shows.get_episodes(
+        "4rOoJ6Egrf8K2IrywzwOMk",
+        limit=limit,
+        offset=offset
+    )
+    
+    all_episodes.extend(page.items)
+    
+    # Check if there are more episodes
+    if page.next is None:
+        break
+    
+    offset += limit
+
+print(f"Retrieved {len(all_episodes)} episodes")
+```
+
+```python Market-Specific
+# Get episodes available in specific market
+episodes = await client.shows.get_episodes(
+    "4rOoJ6Egrf8K2IrywzwOMk",
+    market="US",
+    limit=10
+)
+```
+</CodeGroup>
+
+---
+
+## Get Saved Shows
+
+Retrieve shows saved in the current user's library.
+
+```python
+async def get_saved(
+    self,
+    limit: int = 20,
+    offset: int = 0
+) -> Page[SavedShow]
+```
+
+<ParamField path="limit" type="int">
+  Maximum number of shows to return. Default: 20. Range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int">
+  Index of the first show to return. Default: 0. Use for pagination.
+</ParamField>
+
+### Returns
+
+<ResponseField name="Page[SavedShow]" type="Page[SavedShow]">
+  Paginated list of saved show objects.
+  
+  **SavedShow includes:**
+  - `added_at` - Timestamp when show was saved
+  - `show` - Complete Show object with all metadata
+</ResponseField>
+
+### Example
+
+<CodeGroup>
+```python Get Saved Shows
+# Get user's saved shows
+saved_shows = await client.shows.get_saved(limit=50)
+
+for item in saved_shows.items:
+    print(f"Added: {item.added_at}")
+    print(f"Show: {item.show.name}")
+    print(f"Publisher: {item.show.publisher}")
+    print(f"Episodes: {item.show.total_episodes}")
+    print("---")
+
+print(f"\nTotal saved shows: {saved_shows.total}")
+```
+
+```python Pagination
+# Get all saved shows with pagination
+all_saved = []
+offset = 0
+limit = 50
+
+while True:
+    page = await client.shows.get_saved(
+        limit=limit,
+        offset=offset
+    )
+    
+    all_saved.extend(page.items)
+    
+    if page.next is None:
+        break
+    
+    offset += limit
+
+print(f"Total saved shows: {len(all_saved)}")
+```
+
+```python Recently Added
+# Get most recently added shows
+recent = await client.shows.get_saved(limit=10)
+
+for item in sorted(recent.items, key=lambda x: x.added_at, reverse=True):
+    print(f"{item.show.name} - Added {item.added_at}")
+```
+
+```python Sync Version
+from spotify_sdk import SpotifySyncClient
+
+client = SpotifySyncClient(auth_token="your_token")
+
+saved = client.shows.get_saved()
+for item in saved.items:
+    print(item.show.name)
+```
+</CodeGroup>
+
+## Complete Example
+
+Here's a comprehensive example showing how to work with shows:
+
+```python
+from spotify_sdk import SpotifyClient
+
+async def explore_show(show_id: str):
+    client = SpotifyClient(auth_token="your_token")
+    
+    # Get show details
+    show = await client.shows.get(show_id, market="US")
+    
+    print(f"Show: {show.name}")
+    print(f"Publisher: {show.publisher}")
+    print(f"Total Episodes: {show.total_episodes}")
+    print(f"Languages: {', '.join(show.languages)}")
+    print(f"Explicit: {show.explicit}")
+    print(f"\nDescription: {show.description}")
+    
+    # Get latest episodes
+    print("\n=== Latest Episodes ===")
+    episodes = await client.shows.get_episodes(
+        show_id,
+        market="US",
+        limit=5
+    )
+    
+    for i, episode in enumerate(episodes.items, 1):
+        duration_min = episode.duration_ms // 60000
+        print(f"\n{i}. {episode.name}")
+        print(f"   Released: {episode.release_date}")
+        print(f"   Duration: {duration_min} minutes")
+        if episode.audio_preview_url:
+            print(f"   Preview: {episode.audio_preview_url}")
+    
+    # Check user's saved shows
+    saved = await client.shows.get_saved(limit=50)
+    is_saved = any(item.show.id == show_id for item in saved.items)
+    
+    print(f"\nSaved in library: {is_saved}")
+
+# Run the example
+import asyncio
+asyncio.run(explore_show("4rOoJ6Egrf8K2IrywzwOMk"))
+```
+
+## Error Handling
+
+```python
+try:
+    # Attempt to get show with empty ID
+    show = await client.shows.get("")  
+except ValueError as e:
+    print(f"Error: {e}")  # "id cannot be empty"
+
+try:
+    # Get episodes for invalid show ID
+    episodes = await client.shows.get_episodes("invalid_id")
+except Exception as e:
+    # Handle API errors (404, etc.)
+    print(f"API Error: {e}")
+```
+
+<Tip>
+  Use the `market` parameter when retrieving shows to ensure you only get content available in your target region.
+</Tip>
+
+<Note>
+  Saved shows require user authentication with appropriate scopes (`user-library-read` for reading saved shows).
+</Note>

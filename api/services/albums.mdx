@@ -1,0 +1,338 @@
+---
+title: "Albums Service"
+description: "API reference for Spotify SDK album operations including retrieving albums, tracks, new releases, and managing saved albums"
+---
+
+## Overview
+
+The `AlbumService` (async) and `AsyncAlbumService` provide methods for interacting with Spotify albums. Use these services to retrieve album information, browse tracks, discover new releases, and manage the user's saved album library.
+
+<Note>
+Both sync and async versions are available. Import `AlbumService` for sync operations or `AsyncAlbumService` for async operations.
+</Note>
+
+## Methods
+
+### get
+
+Retrieve detailed information about a single album by its Spotify ID.
+
+```python
+async def get(id: str, market: str | None = None) -> Album
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the album.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for track relinking. If provided, Spotify will attempt to return content available in the specified market.
+</ParamField>
+
+**Returns:** `Album` - The complete album object with all metadata.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    album = await client.albums.get("6DEjYFkNZh67HP7R9PSZvv")
+    print(f"Album: {album.name}")
+    print(f"Artist: {album.artists[0].name}")
+    print(f"Release date: {album.release_date}")
+    print(f"Total tracks: {album.total_tracks}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    album = client.albums.get("6DEjYFkNZh67HP7R9PSZvv")
+    print(f"Album: {album.name}")
+    print(f"Artist: {album.artists[0].name}")
+```
+</CodeGroup>
+
+---
+
+### get_several
+
+Retrieve multiple albums in a single request.
+
+```python
+async def get_several(ids: list[str], market: str | None = None) -> list[Album]
+```
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify album IDs. Maximum of 20 IDs per request enforced by Spotify API.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for track relinking.
+</ParamField>
+
+**Returns:** `list[Album]` - List of album objects.
+
+**Raises:** `ValueError` if `ids` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    album_ids = [
+        "6DEjYFkNZh67HP7R9PSZvv",
+        "1ATL5GLyefJaxhQzSPVrLX",
+        "5Z9iiGl2FcIfa3BMiv6OIw"
+    ]
+    albums = await client.albums.get_several(album_ids, market="US")
+    
+    for album in albums:
+        print(f"{album.name} by {album.artists[0].name}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    album_ids = ["6DEjYFkNZh67HP7R9PSZvv", "1ATL5GLyefJaxhQzSPVrLX"]
+    albums = client.albums.get_several(album_ids)
+```
+</CodeGroup>
+
+<Tip>
+Batch requests are more efficient than multiple individual requests. The Spotify API allows up to 20 albums per call.
+</Tip>
+
+---
+
+### get_tracks
+
+Retrieve the tracks from a specific album with pagination support.
+
+```python
+async def get_tracks(
+    id: str,
+    market: str | None = None,
+    limit: int = 20,
+    offset: int = 0
+) -> Page[SimplifiedTrack]
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the album.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for track relinking.
+</ParamField>
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of tracks to return. Valid range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int" default="0">
+  Index of the first track to return (for pagination).
+</ParamField>
+
+**Returns:** `Page[SimplifiedTrack]` - Paginated response containing simplified track objects.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    # Get first 10 tracks
+    tracks_page = await client.albums.get_tracks(
+        "6DEjYFkNZh67HP7R9PSZvv",
+        limit=10
+    )
+    
+    print(f"Total tracks: {tracks_page.total}")
+    for track in tracks_page.items:
+        duration_min = track.duration_ms // 60000
+        duration_sec = (track.duration_ms % 60000) // 1000
+        print(f"{track.track_number}. {track.name} ({duration_min}:{duration_sec:02d})")
+    
+    # Check if there are more tracks
+    if tracks_page.next:
+        print("More tracks available...")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    tracks_page = client.albums.get_tracks("6DEjYFkNZh67HP7R9PSZvv", limit=10)
+    for track in tracks_page.items:
+        print(f"{track.name}")
+```
+</CodeGroup>
+
+---
+
+### get_new_releases
+
+Discover new album releases featured on Spotify.
+
+```python
+async def get_new_releases(limit: int = 20, offset: int = 0) -> Page[SimplifiedAlbum]
+```
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of albums to return. Valid range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int" default="0">
+  Index of the first album to return (for pagination).
+</ParamField>
+
+**Returns:** `Page[SimplifiedAlbum]` - Paginated response containing simplified album objects.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    new_releases = await client.albums.get_new_releases(limit=10)
+    
+    print("New Album Releases:")
+    for album in new_releases.items:
+        artists = ", ".join([artist.name for artist in album.artists])
+        print(f"- {album.name} by {artists}")
+        print(f"  Released: {album.release_date}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    new_releases = client.albums.get_new_releases(limit=5)
+    for album in new_releases.items:
+        print(album.name)
+```
+</CodeGroup>
+
+---
+
+### get_saved
+
+Retrieve albums saved in the current user's library.
+
+```python
+async def get_saved(
+    limit: int = 20,
+    offset: int = 0,
+    market: str | None = None
+) -> Page[SavedAlbum]
+```
+
+<ParamField path="limit" type="int" default="20">
+  Maximum number of albums to return. Valid range: 1-50.
+</ParamField>
+
+<ParamField path="offset" type="int" default="0">
+  Index of the first album to return (for pagination).
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code.
+</ParamField>
+
+**Returns:** `Page[SavedAlbum]` - Paginated response containing saved album objects with metadata.
+
+<Note>
+Requires the `user-library-read` scope.
+</Note>
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    saved = await client.albums.get_saved(limit=20)
+    
+    print(f"You have {saved.total} saved albums")
+    for saved_album in saved.items:
+        album = saved_album.album
+        print(f"- {album.name} by {album.artists[0].name}")
+        print(f"  Added on: {saved_album.added_at}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    saved = client.albums.get_saved(limit=10)
+    for saved_album in saved.items:
+        print(saved_album.album.name)
+```
+</CodeGroup>
+
+---
+
+### check_saved
+
+Check whether one or more albums are saved in the current user's library.
+
+```python
+async def check_saved(ids: list[str]) -> list[bool]
+```
+
+<ParamField path="ids" type="list[str]" required>
+  Spotify album IDs to check.
+</ParamField>
+
+**Returns:** `list[bool]` - A list of boolean values aligned to the input IDs, where `True` indicates the album is saved.
+
+**Raises:** 
+- `ValueError` if `ids` is empty or the response shape is invalid.
+
+<Note>
+Requires the `user-library-read` scope.
+</Note>
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    album_ids = [
+        "6DEjYFkNZh67HP7R9PSZvv",
+        "1ATL5GLyefJaxhQzSPVrLX",
+        "5Z9iiGl2FcIfa3BMiv6OIw"
+    ]
+    
+    is_saved = await client.albums.check_saved(album_ids)
+    
+    for album_id, saved in zip(album_ids, is_saved):
+        status = "saved" if saved else "not saved"
+        print(f"Album {album_id}: {status}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    is_saved = client.albums.check_saved(["6DEjYFkNZh67HP7R9PSZvv"])
+    print(f"Is saved: {is_saved[0]}")
+```
+</CodeGroup>
+
+## Related Models
+
+- `Album` - Full album object with complete metadata
+- `SimplifiedAlbum` - Simplified album object with essential information
+- `SavedAlbum` - Album object with save timestamp
+- `SimplifiedTrack` - Track object without full album details
+- `Page[T]` - Paginated response wrapper
+
+## See Also
+
+- [Artists Service](/api/services/artists) - Work with artist data
+- [Library Service](/api/services/library) - Save and remove library items
+- [Authentication](/concepts/authentication) - Required scopes and auth flows

@@ -1,0 +1,552 @@
+---
+title: "AuthorizationCode Authentication"
+description: "OAuth authorization code flow with refresh tokens for user authentication"
+---
+
+## Overview
+
+The Authorization Code flow is the OAuth 2.0 method for user authentication. It enables:
+
+- Access to user-specific endpoints (playlists, library, playback, etc.)
+- Fine-grained permission scopes
+- Automatic token refresh with refresh tokens
+- Long-lived user sessions
+
+This is the recommended authentication method for applications that need to act on behalf of a user.
+
+<Note>
+The Authorization Code flow requires user interaction to grant permissions. For app-only authentication without user data, use [Client Credentials](/api/auth/client-credentials) instead.
+</Note>
+
+## Class: AuthorizationCode
+
+The `AuthorizationCode` class implements the OAuth 2.0 authorization code grant type with automatic token refresh and caching.
+
+### Constructor
+
+```python
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private", "user-library-read"],
+    refresh_token=None,
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+    timeout=30.0,
+    max_retries=3,
+    skew_seconds=30,
+    http_client=None,
+)
+```
+
+### Parameters
+
+<ParamField path="client_id" type="str | None" default="None">
+  Spotify application client ID. If not provided, reads from `SPOTIFY_SDK_CLIENT_ID` environment variable.
+</ParamField>
+
+<ParamField path="client_secret" type="str | None" default="None">
+  Spotify application client secret. If not provided, reads from `SPOTIFY_SDK_CLIENT_SECRET` environment variable.
+</ParamField>
+
+<ParamField path="redirect_uri" type="str | None" default="None">
+  OAuth callback URL registered in your Spotify app settings. If not provided, reads from `SPOTIFY_SDK_REDIRECT_URI` environment variable.
+</ParamField>
+
+<ParamField path="scope" type="str | list[str] | tuple[str, ...] | None" default="None">
+  OAuth scopes to request. Can be a space-delimited string, list, or tuple. See [Spotify Authorization Scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes) for available scopes.
+</ParamField>
+
+<ParamField path="refresh_token" type="str | None" default="None">
+  Optional refresh token from a previous authorization. If provided, the auth provider can refresh access tokens without requiring user interaction.
+</ParamField>
+
+<ParamField path="token_cache" type="TokenCache | None" default="None">
+  Optional token cache for storing access and refresh tokens. Defaults to `InMemoryTokenCache()`. Use `FileTokenCache` for persistent storage across sessions.
+</ParamField>
+
+<ParamField path="timeout" type="float" default="30.0">
+  HTTP request timeout in seconds for token requests.
+</ParamField>
+
+<ParamField path="max_retries" type="int | None" default="3">
+  Maximum number of retry attempts for failed token requests. Retries use exponential backoff with jitter.
+</ParamField>
+
+<ParamField path="skew_seconds" type="int" default="30">
+  Number of seconds before token expiry to proactively refresh. Prevents requests with nearly-expired tokens.
+</ParamField>
+
+<ParamField path="http_client" type="httpx.Client | None" default="None">
+  Optional custom HTTP client. If not provided, a new client is created and managed internally.
+</ParamField>
+
+### Methods
+
+#### get_authorization_url()
+
+Generates the Spotify authorization URL to redirect users for consent.
+
+```python
+url = auth.get_authorization_url(
+    state="random-state-string",
+    scope=["user-read-private"],
+    show_dialog=False,
+)
+```
+
+**Parameters:**
+- `state` (str | None): Optional state parameter for CSRF protection. Recommended for security.
+- `scope` (str | list[str] | tuple[str, ...] | None): Optional scope override. Uses instance scope if not provided.
+- `show_dialog` (bool): If `True`, forces the user to approve the app even if previously authorized.
+
+**Returns:** `str` - Authorization URL to redirect the user to
+
+#### parse_response_url()
+
+Parses the OAuth callback URL to extract the authorization code.
+
+```python
+code = auth.parse_response_url(
+    "http://127.0.0.1:8080/callback?code=AQD...&state=xyz",
+    expected_state="xyz",
+)
+```
+
+**Parameters:**
+- `url` (str): The full callback URL or just the query string.
+- `expected_state` (str | None): Expected state value for verification. Raises `AuthenticationError` if mismatch.
+
+**Returns:** `str` - Authorization code
+
+**Raises:** `AuthenticationError` if the response contains an error or state mismatch
+
+#### exchange_code()
+
+Exchanges an authorization code for access and refresh tokens.
+
+```python
+token_info = await auth.exchange_code(code)
+```
+
+**Parameters:**
+- `code` (str): Authorization code from the callback URL.
+
+**Returns:** `TokenInfo` - Token information with access token, refresh token, and expiry
+
+#### get_access_token()
+
+Returns a valid access token, automatically refreshing if needed.
+
+```python
+token = await auth.get_access_token()
+```
+
+**Returns:** `str` - A valid access token
+
+**Raises:** `AuthenticationError` if no authorization token is available
+
+#### close()
+
+Closes the HTTP client and releases resources.
+
+```python
+await auth.close()
+```
+
+## Basic Usage with Local Helper
+
+The simplest way to authorize users locally using the `authorize_local()` helper:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private"],
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+
+# Opens browser and captures callback automatically
+auth.authorize_local()
+
+client = SpotifyClient(auth_provider=auth)
+
+# Access user-specific endpoints
+user = client.users.get_current_user()
+print(f"Logged in as: {user.display_name}")
+
+client.close()
+auth.close()
+```
+
+## Local Authorization Helper
+
+### authorize_local()
+
+Convenience function for local authorization flows. Opens the user's browser, runs a temporary callback server, and exchanges the code automatically.
+
+```python
+from spotify_sdk.auth import AuthorizationCode, authorize_local
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private", "user-library-read"],
+)
+
+token_info = authorize_local(
+    auth,
+    state=None,
+    show_dialog=False,
+    timeout=300.0,
+    open_browser=True,
+    authorization_url_handler=None,
+)
+```
+
+**Parameters:**
+- `auth` (AuthorizationCode): The authorization code instance.
+- `state` (str | None): Optional state for CSRF protection. Auto-generated if not provided.
+- `show_dialog` (bool): Force user approval dialog.
+- `timeout` (float): Seconds to wait for callback. Default 300 (5 minutes).
+- `open_browser` (bool): Automatically open browser. Default `True`.
+- `authorization_url_handler` (Callable[[str], None] | None): Optional callback to handle the authorization URL (e.g., print it).
+
+**Returns:** `TokenInfo` - Token information
+
+**Raises:** 
+- `RuntimeError` if called inside an async event loop (use `async_authorize_local` instead)
+- `ValueError` if redirect URI is not a loopback address or missing port
+- `AuthenticationError` if authorization fails or times out
+
+<Warning>
+The `authorize_local()` helper requires the redirect URI to be a loopback address (`http://127.0.0.1` or `http://localhost`) with a port. The port must match what's registered in your Spotify app settings.
+</Warning>
+
+## Token Caching with FileTokenCache
+
+Persist tokens across application restarts:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private"],
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+
+# First run: requires authorization
+auth.authorize_local()
+
+# Subsequent runs: uses cached refresh token automatically
+client = SpotifyClient(auth_provider=auth)
+user = client.users.get_current_user()
+
+client.close()
+auth.close()
+```
+
+## Manual Authorization Flow
+
+For web applications, implement the OAuth flow manually:
+
+<Steps>
+  <Step title="Generate Authorization URL">
+    ```python
+    from spotify_sdk.auth import AuthorizationCode
+    
+    auth = AuthorizationCode(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+        redirect_uri="https://yourapp.com/callback",
+        scope=["user-read-private", "user-library-read"],
+    )
+    
+    state = "random-state-string"  # Generate securely
+    url = auth.get_authorization_url(state=state)
+    
+    # Redirect user to url
+    ```
+  </Step>
+  
+  <Step title="Handle Callback">
+    ```python
+    # In your callback handler:
+    callback_url = request.url  # Get full callback URL
+    
+    code = auth.parse_response_url(
+        callback_url,
+        expected_state=state,
+    )
+    ```
+  </Step>
+  
+  <Step title="Exchange Code for Tokens">
+    ```python
+    import asyncio
+    from spotify_sdk import AsyncSpotifyClient
+    
+    async def get_user_data():
+        token_info = await auth.exchange_code(code)
+        
+        async with AsyncSpotifyClient(auth_provider=auth) as client:
+            user = await client.users.get_current_user()
+            return user
+    
+    user = asyncio.run(get_user_data())
+    ```
+  </Step>
+</Steps>
+
+## Scopes
+
+Request specific permissions using scopes:
+
+```python
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=[
+        "user-read-private",
+        "user-read-email",
+        "user-library-read",
+        "user-library-modify",
+        "playlist-read-private",
+        "playlist-modify-public",
+        "playlist-modify-private",
+    ],
+)
+```
+
+Common scopes:
+
+| Scope | Description |
+|-------|-------------|
+| `user-read-private` | Read user profile data |
+| `user-read-email` | Read user email address |
+| `user-library-read` | Read saved tracks and albums |
+| `user-library-modify` | Modify saved tracks and albums |
+| `playlist-read-private` | Read private playlists |
+| `playlist-modify-public` | Modify public playlists |
+| `playlist-modify-private` | Modify private playlists |
+| `user-read-playback-state` | Read playback state |
+| `user-modify-playback-state` | Control playback |
+
+See the [full scope list](https://developer.spotify.com/documentation/web-api/concepts/scopes) in Spotify's documentation.
+
+## Async Support
+
+```python
+import asyncio
+from spotify_sdk import AsyncSpotifyClient
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+async def main():
+    auth = AuthorizationCode(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+        redirect_uri="http://127.0.0.1:8080/callback",
+        scope=["user-read-private"],
+        token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+    )
+    
+    # Use async_authorize_local for async contexts
+    from spotify_sdk.auth import async_authorize_local
+    await async_authorize_local(auth)
+    
+    async with AsyncSpotifyClient(auth_provider=auth) as client:
+        user = await client.users.get_current_user()
+        print(f"Logged in as: {user.display_name}")
+    
+    await auth.close()
+
+asyncio.run(main())
+```
+
+## Token Refresh Behavior
+
+The `AuthorizationCode` class automatically manages token lifecycle:
+
+<Steps>
+  <Step title="Initial Authorization">
+    User grants permissions and you exchange the code for tokens.
+  </Step>
+  
+  <Step title="Caching">
+    Access token, refresh token, and expiry are stored in the cache.
+  </Step>
+  
+  <Step title="Reuse">
+    Subsequent `get_access_token()` calls return the cached token if valid.
+  </Step>
+  
+  <Step title="Automatic Refresh">
+    When the token is within `skew_seconds` of expiring, automatically uses the refresh token to get a new access token.
+  </Step>
+</Steps>
+
+### Retry Logic
+
+Token requests automatically retry with exponential backoff on:
+
+- Connection errors and timeouts
+- Server errors (5xx status codes)
+
+Retry configuration:
+- **Initial delay:** 0.5 seconds
+- **Maximum delay:** 8.0 seconds  
+- **Multiplier:** 2x per retry
+- **Jitter:** Random 0.5-1.0x variation
+
+## Error Handling
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk import AuthenticationError
+from spotify_sdk.auth import AuthorizationCode
+
+try:
+    auth = AuthorizationCode(
+        client_id="your-client-id",
+        client_secret="your-client-secret",
+        redirect_uri="http://127.0.0.1:8080/callback",
+        scope=["user-read-private"],
+    )
+    
+    auth.authorize_local(timeout=60.0)
+    
+    client = SpotifyClient(auth_provider=auth)
+    user = client.users.get_current_user()
+    
+except AuthenticationError as e:
+    print(f"Authentication failed: {e.message}")
+    if e.status_code:
+        print(f"Status code: {e.status_code}")
+    if e.response_body:
+        print(f"Details: {e.response_body}")
+finally:
+    if 'client' in locals():
+        client.close()
+    if 'auth' in locals():
+        auth.close()
+```
+
+## Complete Example from README
+
+Full working example with all best practices:
+
+```python
+from spotify_sdk import SpotifyClient
+from spotify_sdk.auth import AuthorizationCode, FileTokenCache
+
+auth = AuthorizationCode(
+    client_id="your-client-id",
+    client_secret="your-client-secret",
+    redirect_uri="http://127.0.0.1:8080/callback",
+    scope=["user-read-private"],
+    token_cache=FileTokenCache(".cache/spotify-sdk/token.json"),
+)
+
+# Local helper: opens browser and captures the callback automatically
+auth.authorize_local()
+
+client = SpotifyClient(auth_provider=auth)
+
+# Access user-specific data
+user = client.users.get_current_user()
+print(f"Logged in as: {user.display_name}")
+
+# Get user's saved albums
+library = client.library.get_saved_albums(limit=20)
+for item in library.items:
+    album = item.album
+    print(f"{album.name} by {album.artists[0].name}")
+
+client.close()
+auth.close()
+```
+
+## When to Use Authorization Code Flow
+
+**Use authorization code flow when:**
+- Building user-facing applications
+- Accessing user-specific endpoints (playlists, library, playback, etc.)
+- You need to act on behalf of a user
+- You require specific permission scopes
+- Building web, mobile, or desktop applications
+
+**Avoid authorization code flow when:**
+- You only need public catalog data
+- Building backend services without user interaction
+- You want to avoid user authorization flows
+
+<Note>
+For app-only access without user interaction, use [Client Credentials](/api/auth/client-credentials) instead.
+</Note>
+
+## Environment Variables
+
+The SDK recognizes these environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `SPOTIFY_SDK_CLIENT_ID` | Spotify application client ID |
+| `SPOTIFY_SDK_CLIENT_SECRET` | Spotify application client secret |
+| `SPOTIFY_SDK_REDIRECT_URI` | OAuth redirect URI |
+
+## Related Classes
+
+### TokenInfo
+
+Dataclass representing cached token information.
+
+```python
+@dataclass(frozen=True)
+class TokenInfo:
+    access_token: str
+    expires_at: float
+    refresh_token: str | None = None
+    scope: str | None = None
+```
+
+### FileTokenCache
+
+JSON file-based token cache for persistence.
+
+```python
+from spotify_sdk.auth import FileTokenCache
+
+cache = FileTokenCache(".cache/spotify-sdk/token.json")
+```
+
+**Parameters:**
+- `path` (str): File path for storing tokens. Defaults to `.spotify_sdk_token.json`. The file is created with `0600` permissions for security.
+
+### InMemoryTokenCache
+
+Simple in-memory token cache (default, not persistent).
+
+```python
+from spotify_sdk.auth import InMemoryTokenCache
+
+cache = InMemoryTokenCache()
+```
+
+## Related
+
+- [Access Token Authentication](/api/auth/access-token) - Simple direct token authentication
+- [Client Credentials Flow](/api/auth/client-credentials) - App-only authentication
+- [Spotify Authorization Scopes](https://developer.spotify.com/documentation/web-api/concepts/scopes) - Available permission scopes
+- [Error Handling](/concepts/error-handling) - Handling authentication errors

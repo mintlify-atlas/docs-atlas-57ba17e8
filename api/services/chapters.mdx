@@ -1,0 +1,164 @@
+---
+title: "Chapters Service"
+description: "API reference for Spotify SDK chapter operations for retrieving audiobook chapters"
+---
+
+## Overview
+
+The `ChapterService` (sync) and `AsyncChapterService` (async) provide methods for retrieving individual audiobook chapter information from Spotify.
+
+<Note>
+Both sync and async versions are available. Import `ChapterService` for sync operations or `AsyncChapterService` for async operations.
+</Note>
+
+## Methods
+
+### get
+
+Retrieve detailed information about a single audiobook chapter by its Spotify ID.
+
+```python
+async def get(id: str, market: str | None = None) -> Chapter
+```
+
+<ParamField path="id" type="str" required>
+  The Spotify ID for the chapter.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for chapter relinking and availability.
+</ParamField>
+
+**Returns:** `Chapter` - The complete chapter object with metadata including name, description, duration, and audiobook reference.
+
+**Raises:** `ValueError` if `id` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    chapter = await client.chapters.get("0D5wENdkdwbqlrHoaJ9g29", market="US")
+    
+    print(f"Chapter: {chapter.name}")
+    print(f"Chapter Number: {chapter.chapter_number}")
+    
+    # Duration formatting
+    duration_min = chapter.duration_ms // 60000
+    duration_sec = (chapter.duration_ms % 60000) // 1000
+    print(f"Duration: {duration_min}:{duration_sec:02d}")
+    
+    print(f"Release Date: {chapter.release_date}")
+    print(f"Languages: {', '.join(chapter.languages)}")
+    
+    if chapter.description:
+        print(f"Description: {chapter.description[:200]}...")
+    
+    # Access audiobook info
+    if chapter.audiobook:
+        print(f"From Audiobook: {chapter.audiobook.name}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    chapter = client.chapters.get("0D5wENdkdwbqlrHoaJ9g29", market="US")
+    print(f"Chapter: {chapter.name}")
+    print(f"Chapter Number: {chapter.chapter_number}")
+```
+</CodeGroup>
+
+<Tip>
+The chapter object includes a reference to its parent audiobook, making it easy to navigate back to the full audiobook details.
+</Tip>
+
+---
+
+### get_several
+
+Retrieve multiple audiobook chapters in a single request.
+
+```python
+async def get_several(
+    ids: list[str],
+    market: str | None = None
+) -> list[Chapter]
+```
+
+<ParamField path="ids" type="list[str]" required>
+  List of Spotify chapter IDs. Maximum of 50 IDs per request enforced by Spotify API.
+</ParamField>
+
+<ParamField path="market" type="str | None" default="None">
+  An ISO 3166-1 alpha-2 country code for chapter relinking and availability.
+</ParamField>
+
+**Returns:** `list[Chapter]` - List of chapter objects.
+
+**Raises:** `ValueError` if `ids` is empty.
+
+<CodeGroup>
+```python Async
+from spotify_sdk import AsyncSpotifyClient
+
+async with AsyncSpotifyClient(access_token="your_token") as client:
+    chapter_ids = [
+        "0D5wENdkdwbqlrHoaJ9g29",
+        "1HEwJQZYiPtLc8S7bDvqpC",
+        "2VE4pLXpQbcCdfXU5vDqgJ"
+    ]
+    
+    chapters = await client.chapters.get_several(chapter_ids, market="US")
+    
+    total_duration_ms = 0
+    for chapter in chapters:
+        duration_min = chapter.duration_ms // 60000
+        duration_sec = (chapter.duration_ms % 60000) // 1000
+        
+        print(f"Chapter {chapter.chapter_number}: {chapter.name}")
+        print(f"  Duration: {duration_min}:{duration_sec:02d}")
+        
+        total_duration_ms += chapter.duration_ms
+    
+    # Calculate total listening time
+    total_min = total_duration_ms // 60000
+    total_sec = (total_duration_ms % 60000) // 1000
+    print(f"\nTotal listening time: {total_min}:{total_sec:02d}")
+```
+
+```python Sync
+from spotify_sdk import SpotifyClient
+
+with SpotifyClient(access_token="your_token") as client:
+    chapter_ids = [
+        "0D5wENdkdwbqlrHoaJ9g29",
+        "1HEwJQZYiPtLc8S7bDvqpC"
+    ]
+    
+    chapters = client.chapters.get_several(chapter_ids, market="US")
+    
+    for chapter in chapters:
+        print(f"Chapter {chapter.chapter_number}: {chapter.name}")
+```
+</CodeGroup>
+
+<Tip>
+Batch requests are more efficient than multiple individual requests. The Spotify API allows up to 50 chapters per call.
+</Tip>
+
+<Note>
+Chapters are part of audiobooks on Spotify. Use the [Audiobooks Service](/api/services/audiobooks) to browse audiobook catalogs and retrieve chapter lists.
+</Note>
+
+## Related Models
+
+- `Chapter` - Full chapter object with complete metadata
+- `SimplifiedChapter` - Simplified chapter object with essential information
+- `Audiobook` - Parent audiobook reference
+
+## See Also
+
+- [Audiobooks Service](/api/services/audiobooks) - Work with audiobooks
+- [Episodes Service](/api/services/episodes) - Work with podcast episodes
+- [Authentication](/concepts/authentication) - Required scopes and auth flows

@@ -1,0 +1,475 @@
+---
+title: Retries and Timeouts
+description: Understanding automatic retry behavior, exponential backoff with jitter, and timeout configuration in the Spotify SDK
+---
+
+# Retries and Timeouts
+
+The Spotify SDK includes built-in retry logic with exponential backoff and jitter to handle transient errors, rate limits, and network issues automatically.
+
+## Overview
+
+The SDK automatically retries requests that fail due to:
+
+- **Connection errors** - Network connectivity issues
+- **Timeout exceptions** - Requests that exceed the timeout limit
+- **Rate limit responses (429)** - Respects the `Retry-After` header from Spotify
+- **Server errors (5xx)** - Temporary Spotify server issues
+
+<Note>
+Client errors (4xx) like `NotFoundError`, `BadRequestError`, and `AuthenticationError` are **not** retried automatically, as they typically indicate an issue with the request that won't be resolved by retrying.
+</Note>
+
+## Default Retry Configuration
+
+Both `SpotifyClient` and `AsyncSpotifyClient` use these default retry settings:
+
+| Setting | Default Value | Description |
+|---------|--------------|-------------|
+| `max_retries` | `3` | Maximum number of retry attempts |
+| `INITIAL_BACKOFF` | `0.5` seconds | Starting backoff delay |
+| `MAX_BACKOFF` | `8.0` seconds | Maximum backoff delay |
+| `BACKOFF_MULTIPLIER` | `2` | Multiplier for exponential backoff |
+
+These values are defined in the `AsyncBaseClient` class (src/spotify_sdk/_async/_base_client.py:28-32):
+
+```python
+class AsyncBaseClient:
+    # Retry configuration
+    MAX_RETRIES = 3
+    INITIAL_BACKOFF = 0.5
+    MAX_BACKOFF = 8.0
+    BACKOFF_MULTIPLIER = 2
+```
+
+## Configuring Max Retries
+
+You can customize the maximum number of retries when initializing the client:
+
+<CodeGroup>
+
+```python Sync Client
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(
+    access_token="your-access-token",
+    max_retries=5,  # Increase to 5 retry attempts
+)
+```
+
+```python Async Client
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(
+    access_token="your-access-token",
+    max_retries=5,  # Increase to 5 retry attempts
+)
+```
+
+```python Disable Retries
+from spotify_sdk import SpotifyClient
+
+# Set to 0 to disable automatic retries
+client = SpotifyClient(
+    access_token="your-access-token",
+    max_retries=0,
+)
+```
+
+</CodeGroup>
+
+## Exponential Backoff with Jitter
+
+The SDK uses exponential backoff with jitter to avoid overwhelming the API and prevent thundering herd problems.
+
+### How It Works
+
+<Steps>
+
+### Calculate Base Backoff
+The backoff time doubles with each retry attempt:
+- Attempt 1: 0.5 seconds
+- Attempt 2: 1.0 seconds
+- Attempt 3: 2.0 seconds
+- Attempt 4: 4.0 seconds
+- Attempt 5: 8.0 seconds (capped at MAX_BACKOFF)
+
+### Apply Jitter
+A random multiplier between 0.5 and 1.0 is applied to prevent synchronized retries from multiple clients.
+
+### Sleep and Retry
+The client waits for the calculated backoff time before retrying the request.
+
+</Steps>
+
+The backoff calculation is implemented in `_calculate_backoff()` (src/spotify_sdk/_async/_base_client.py:221-228):
+
+```python
+def _calculate_backoff(self, attempt: int) -> float:
+    """Calculate backoff time with jitter."""
+    backoff = min(
+        self.INITIAL_BACKOFF * (self.BACKOFF_MULTIPLIER**attempt),
+        self.MAX_BACKOFF,
+    )
+    # Add jitter (0.5 to 1.0 multiplier)
+    return backoff * (0.5 + random.random() * 0.5)
+```
+
+### Example Backoff Times
+
+Here's what actual backoff times might look like with jitter:
+
+| Attempt | Base Delay | With Jitter (range) |
+|---------|------------|---------------------|
+| 1 | 0.5s | 0.25s - 0.5s |
+| 2 | 1.0s | 0.5s - 1.0s |
+| 3 | 2.0s | 1.0s - 2.0s |
+| 4 | 4.0s | 2.0s - 4.0s |
+| 5 | 8.0s | 4.0s - 8.0s |
+
+<Tip>
+Jitter helps distribute retry attempts over time, reducing the likelihood of multiple clients retrying simultaneously and causing another spike in traffic.
+</Tip>
+
+## Rate Limit Handling
+
+When Spotify returns a 429 (rate limit) response, the SDK respects the `Retry-After` header provided by the API.
+
+### Rate Limit Retry Logic
+
+The retry logic for rate limits (src/spotify_sdk/_async/_base_client.py:146-154):
+
+```python
+except RateLimitError as e:
+    last_exception = e
+    if attempt < retries:
+        sleep_time = e.retry_after or self._calculate_backoff(
+            attempt
+        )
+        await anyio.sleep(sleep_time)
+        continue
+    raise
+```
+
+The SDK will:
+1. Use the `Retry-After` value from the response header if available
+2. Fall back to exponential backoff if no `Retry-After` header is present
+3. Retry the request after waiting
+4. Raise `RateLimitError` if all retries are exhausted
+
+### Handling Rate Limits in Your Code
+
+```python
+from spotify_sdk import SpotifyClient, RateLimitError
+
+client = SpotifyClient(access_token="your-access-token")
+
+try:
+    album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+except RateLimitError as e:
+    print(f"Rate limited! Retry after {e.retry_after} seconds")
+    print(f"Status: {e.status_code}")
+    print(f"Message: {e.message}")
+```
+
+## Timeout Configuration
+
+The SDK allows you to configure request timeouts at the client level and per-request.
+
+### Client-Level Timeout
+
+Set a default timeout for all requests:
+
+<CodeGroup>
+
+```python Sync Client
+from spotify_sdk import SpotifyClient
+
+client = SpotifyClient(
+    access_token="your-access-token",
+    timeout=60.0,  # 60 second timeout for all requests
+)
+```
+
+```python Async Client
+from spotify_sdk import AsyncSpotifyClient
+
+client = AsyncSpotifyClient(
+    access_token="your-access-token",
+    timeout=60.0,  # 60 second timeout for all requests
+)
+```
+
+</CodeGroup>
+
+### Per-Request Timeout
+
+The underlying `request()` method supports per-request timeout overrides (src/spotify_sdk/_async/_base_client.py:90-110):
+
+```python
+async def request(
+    self,
+    method: str,
+    path: str,
+    params: dict[str, Any] | None = None,
+    json: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    content: str | bytes | None = None,
+    timeout: float | None = None,  # Override timeout per request
+    max_retries: int | None = None,
+) -> Any:
+```
+
+<Warning>
+Timeout exceptions are automatically retried up to `max_retries` times. If you're experiencing consistent timeouts, consider increasing the timeout value rather than just increasing retries.
+</Warning>
+
+## Retry Flow Diagram
+
+Here's how the retry logic works:
+
+```
+Request Attempt
+     |
+     v
+[Make API Call]
+     |
+     +---> Success? --> Return Response
+     |
+     +---> Connection/Timeout Error?
+     |          |
+     |          v
+     |     [Calculate Backoff]
+     |          |
+     |          v
+     |     [Sleep with Jitter]
+     |          |
+     |          v
+     |     Attempts < max_retries? --> Retry Request
+     |          |
+     |          v
+     |     Raise SpotifyError
+     |
+     +---> Rate Limit (429)?
+     |          |
+     |          v
+     |     [Use Retry-After or Backoff]
+     |          |
+     |          v
+     |     [Sleep]
+     |          |
+     |          v
+     |     Attempts < max_retries? --> Retry Request
+     |          |
+     |          v
+     |     Raise RateLimitError
+     |
+     +---> Server Error (5xx)?
+     |          |
+     |          v
+     |     [Calculate Backoff]
+     |          |
+     |          v
+     |     [Sleep with Jitter]
+     |          |
+     |          v
+     |     Attempts < max_retries? --> Retry Request
+     |          |
+     |          v
+     |     Raise ServerError
+     |
+     +---> Client Error (4xx)? --> Raise Specific Error
+```
+
+## Which Errors Trigger Retries
+
+### Retried Automatically
+
+These errors are automatically retried:
+
+<CodeGroup>
+
+```python Connection Errors
+import httpx
+
+# These are caught and retried
+try:
+    response = await client.request("GET", "/albums/123")
+except httpx.ConnectError:
+    # Automatically retried
+    pass
+```
+
+```python Timeout Exceptions
+import httpx
+
+# These are caught and retried
+try:
+    response = await client.request("GET", "/albums/123")
+except httpx.TimeoutException:
+    # Automatically retried
+    pass
+```
+
+```python Rate Limits (429)
+from spotify_sdk import RateLimitError
+
+# Retried with Retry-After delay
+try:
+    album = client.albums.get("123")
+except RateLimitError:
+    # Automatically retried before raising
+    pass
+```
+
+```python Server Errors (5xx)
+from spotify_sdk import ServerError
+
+# Retried with exponential backoff
+try:
+    album = client.albums.get("123")
+except ServerError:
+    # Automatically retried before raising
+    pass
+```
+
+</CodeGroup>
+
+### Not Retried
+
+These errors are **not** retried automatically:
+
+```python
+from spotify_sdk import (
+    AuthenticationError,  # 401 - Invalid token
+    BadRequestError,      # 400 - Invalid request
+    ForbiddenError,       # 403 - Insufficient permissions
+    NotFoundError,        # 404 - Resource not found
+)
+
+# These are raised immediately without retries
+try:
+    album = client.albums.get("invalid_id")
+except NotFoundError:
+    # Not retried - the ID is invalid
+    pass
+```
+
+## Implementation Details
+
+The retry logic is implemented in the `request()` method of `AsyncBaseClient` (src/spotify_sdk/_async/_base_client.py:122-163):
+
+```python
+for attempt in range(retries + 1):
+    try:
+        access_token = await self._get_access_token()
+        request_headers = self._default_headers(access_token)
+        if headers:
+            request_headers.update(headers)
+        response = await self._http_client.request(
+            method=method,
+            url=path,
+            params=self._clean_params(params),
+            json=json,
+            content=content,
+            timeout=timeout,
+            headers=request_headers,
+        )
+        return self._handle_response(response)
+
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        last_exception = e
+        if attempt < retries:
+            await anyio.sleep(self._calculate_backoff(attempt))
+            continue
+        raise SpotifyError(f"Connection error: {e}") from e
+
+    except RateLimitError as e:
+        last_exception = e
+        if attempt < retries:
+            sleep_time = e.retry_after or self._calculate_backoff(
+                attempt
+            )
+            await anyio.sleep(sleep_time)
+            continue
+        raise
+
+    except ServerError as e:
+        last_exception = e
+        if attempt < retries:
+            await anyio.sleep(self._calculate_backoff(attempt))
+            continue
+        raise
+```
+
+## Best Practices
+
+<Accordion title="Set appropriate max_retries for your use case">
+For production applications, the default `max_retries=3` is usually sufficient. For batch processing or less time-sensitive operations, you might increase this:
+
+```python
+# Production API - keep default
+client = SpotifyClient(access_token="token", max_retries=3)
+
+# Batch processing - can tolerate longer retry periods
+client = SpotifyClient(access_token="token", max_retries=5)
+
+# Critical path - fail fast
+client = SpotifyClient(access_token="token", max_retries=1)
+```
+</Accordion>
+
+<Accordion title="Increase timeout for slow connections">
+If you're on a slow network or making requests that return large responses, increase the timeout:
+
+```python
+client = SpotifyClient(
+    access_token="token",
+    timeout=60.0,  # 60 seconds for slow connections
+)
+```
+</Accordion>
+
+<Accordion title="Monitor and log retry behavior">
+While retries happen automatically, you may want to log when they occur for monitoring:
+
+```python
+import logging
+from spotify_sdk import SpotifyClient, RateLimitError, ServerError
+
+logger = logging.getLogger(__name__)
+
+client = SpotifyClient(access_token="token", max_retries=3)
+
+try:
+    album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+except RateLimitError as e:
+    logger.warning(f"Rate limited after retries: {e.retry_after}s")
+    raise
+except ServerError as e:
+    logger.error(f"Server error after retries: {e.message}")
+    raise
+```
+</Accordion>
+
+<Accordion title="Handle exhausted retries gracefully">
+When all retries are exhausted, the SDK raises an exception. Handle this in your application:
+
+```python
+from spotify_sdk import SpotifyClient, ServerError
+import time
+
+client = SpotifyClient(access_token="token", max_retries=3)
+
+max_attempts = 3
+for attempt in range(max_attempts):
+    try:
+        album = client.albums.get("5K79FLRUCSysQnVESLcTdb")
+        break
+    except ServerError:
+        if attempt < max_attempts - 1:
+            time.sleep(10)  # Wait before trying again
+            continue
+        raise  # All attempts failed
+```
+</Accordion>
